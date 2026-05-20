@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Basketball Playbook Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f0f13">
+    
+    <!-- Open Graph / Preview Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Basketball Playbook Pro">
+    <meta property="og:description" content="Интерактивная доска для составления баскетбольных комбинаций">
+    <meta property="og:image" content="bropropng.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Basketball Playbook Pro">
+    <meta name="twitter:description" content="Интерактивная доска для составления баскетбольных комбинаций">
+    <meta name="twitter:image" content="bropropng.png">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <div class="header-logo">🏀</div>
+                <div class="header-title">Playbook <span>Pro</span></div>
+            </div>
+            <div class="header-center">
+                <button class="tool-btn court-toggle" id="toggle-court" title="Переключить половину"><div class="tool-icon">1/2</div></button>
+            </div>
+            <div class="header-right">
+                <span class="player-badge" id="player-count"><span class="badge-icon">👤</span><span class="badge-count">0</span></span>
+                <div class="record-indicator" id="record-indicator" style="display:none"><span class="record-dot"></span><span class="record-label">REC</span></div>
+            </div>
+        </header>
+
+        <div class="main">
+            <div class="court-container">
+                <svg id="basketball-court" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 280" preserveAspectRatio="xMidYMid meet">
+                    <g id="court-elements" stroke="#fff" stroke-width="0.35" fill="none" opacity="0.7">
+                        <rect x="2" y="2" width="146" height="276"/>
+                        <line x1="2" y1="140" x2="148" y2="140"/>
+                        <circle cx="75" cy="140" r="18"/>
+                        <circle cx="75" cy="140" r="0.9" fill="#fff" opacity="0.9"/>
+                        <rect x="44" y="2" width="62" height="58"/>
+                        <line x1="44" y1="60" x2="106" y2="60"/>
+                        <path d="M 57.5 60 A 18 18 0 0 0 92.5 60"/>
+                        <line x1="6.5" y1="2" x2="6.5" y2="20"/>
+                        <line x1="143.5" y1="2" x2="143.5" y2="20"/>
+                        <path d="M 6.5 20 A 67.5 67.5 0 0 0 143.5 20"/>
+                        <path d="M 57.5 17 A 4 4 0 0 0 92.5 17"/>
+                        <rect x="68" y="3" width="14" height="3" fill="#fff" opacity="0.9"/>
+                        <circle cx="75" cy="7.5" r="0.9" fill="#fff" opacity="0.9"/>
+                        <rect x="44" y="220" width="62" height="58"/>
+                        <line x1="44" y1="220" x2="106" y2="220"/>
+                        <path d="M 57.5 220 A 18 18 0 0 1 92.5 220"/>
+                        <line x1="6.5" y1="278" x2="6.5" y2="260"/>
+                        <line x1="143.5" y1="278" x2="143.5" y2="260"/>
+                        <path d="M 6.5 260 A 67.5 67.5 0 0 1 143.5 260"/>
+                        <path d="M 57.5 263 A 4 4 0 0 1 92.5 263"/>
+                        <rect x="68" y="274" width="14" height="3" fill="#fff" opacity="0.9"/>
+                        <circle cx="75" cy="272.5" r="0.9" fill="#fff" opacity="0.9"/>
+                    </g>
+                    <g id="drawing-layer"></g>
+                    <g id="players-layer"></g>
+                    <g id="animation-layer"></g>
+                </svg>
+            </div>
+        </div>
+
+        <div class="bottom-panel" id="bottom-panel">
+            <div class="panel-handle" id="panel-handle">
+                <div class="handle-bar"></div>
+                <div class="handle-arrow" id="handle-arrow">▾</div>
+            </div>
+            <div class="panel-tabs">
+                <button class="panel-tab active" data-section="tools"><span class="tab-icon">🛠</span><span class="tab-label">Tools</span></button>
+                <button class="panel-tab" data-section="playbook"><span class="tab-icon">📋</span><span class="tab-label">Playbook</span></button>
+                <button class="panel-tab" data-section="save"><span class="tab-icon">💾</span><span class="tab-label">Save</span></button>
+            </div>
+            <div class="panel-content">
+                <div class="panel-section active" id="tools-section">
+                    <div class="record-bar">
+                        <button class="rec-btn record-start" id="record-start"><span class="rec-icon">⏺</span><span class="rec-label">Запись</span></button>
+                        <button class="rec-btn play-btn disabled" id="play-btn"><span class="rec-icon">▶️</span><span class="rec-label">Play</span></button>
+                        <div class="rec-playback" id="rec-playback" style="display:none">
+                            <div class="playback-progress"><div class="playback-fill" id="playback-fill"></div></div>
+                            <span class="rec-status" id="rec-status">00:00</span>
+                        </div>
+                        <button class="rec-btn stop-playback" id="stop-playback" style="display:none"><span class="rec-icon">⏹</span></button>
+                    </div>
+                    <div class="tool-group">
+                        <div class="tool-group-title"><span class="group-icon">👥</span>Players</div>
+                        <div class="tool-group-buttons">
+                            <button class="tool-btn pg" data-tool="player" data-type="PG"><div class="tool-icon">PG</div><div class="tool-label">PG</div></button>
+                            <button class="tool-btn sg" data-tool="player" data-type="SG"><div class="tool-icon">SG</div><div class="tool-label">SG</div></button>
+                            <button class="tool-btn sf" data-tool="player" data-type="SF"><div class="tool-icon">SF</div><div class="tool-label">SF</div></button>
+                            <button class="tool-btn pf" data-tool="player" data-type="PF"><div class="tool-icon">PF</div><div class="tool-label">PF</div></button>
+                            <button class="tool-btn c" data-tool="player" data-type="C"><div class="tool-icon">C</div><div class="tool-label">C</div></button>
+                            <button class="tool-btn defense" data-tool="player" data-type="defense"><div class="tool-icon">⚪</div><div class="tool-label">DEF</div></button>
+                            <button class="tool-btn ball" data-tool="ball" data-type="ball"><div class="tool-icon">🏀</div><div class="tool-label">Ball</div></button>
+                        </div>
+                    </div>
+                    <div class="tool-group">
+                        <div class="tool-group-title"><span class="group-icon">✏️</span>Drawing</div>
+                        <div class="tool-group-buttons">
+                            <button class="tool-btn select" data-tool="select"><div class="tool-icon">✏️</div><div class="tool-label">Select</div></button>
+                            <button class="tool-btn arrow" data-tool="drawing" data-type="arrow"><div class="tool-icon">➡️</div><div class="tool-label">Arrow</div></button>
+                            <button class="tool-btn line" data-tool="drawing" data-type="line"><div class="tool-icon">📏</div><div class="tool-label">Line</div></button>
+                            <button class="tool-btn dashed" data-tool="drawing" data-type="dashed"><div class="tool-icon">•••</div><div class="tool-label">Dash</div></button>
+                            <button class="tool-btn wavy" data-tool="drawing" data-type="wavy"><div class="tool-icon">〰️</div><div class="tool-label">Wavy</div></button>
+                            <button class="tool-btn screen" data-tool="drawing" data-type="screen"><div class="tool-icon">🛡️</div><div class="tool-label">Screen</div></button>
+                            <button class="tool-btn shot" data-tool="drawing" data-type="shot"><div class="tool-icon">🎯</div><div class="tool-label">Shot</div></button>
+                            <button class="tool-btn rebound" data-tool="drawing" data-type="rebound"><div class="tool-icon">⬆️</div><div class="tool-label">Rebound</div></button>
+                            <button class="tool-btn eraser" data-tool="drawing" data-type="eraser"><div class="tool-icon">🧹</div><div class="tool-label">Eraser</div></button>
+                        </div>
+                    </div>
+                    <div class="tool-group">
+                        <div class="tool-group-title"><span class="group-icon">↩️</span>History</div>
+                        <div class="tool-group-buttons history-grid">
+                            <button class="tool-btn undo" id="undo-btn" data-tool="undo"><div class="tool-icon">↩</div><div class="tool-label">Undo</div></button>
+                            <button class="tool-btn redo" id="redo-btn" data-tool="redo"><div class="tool-icon">↪</div><div class="tool-label">Redo</div></button>
+                            <button class="tool-btn clear-all" id="clear-all-btn" data-tool="clear"><div class="tool-icon">🗑</div><div class="tool-label">Clear</div></button>
+                        </div>
+                    </div>
+                    <div class="tool-hint"><span class="hint-dot"></span><span id="hint-text">PG — Нажмите на площадку</span></div>
+                </div>
+                <div class="panel-section" id="playbook-section">
+                    <div class="section-header"><span class="section-icon">📋</span><span class="section-title">Playbook Library</span></div>
+                    <div class="playbook-categories" id="playbook-categories">
+                        <button class="category-btn active" data-category="basic">Basic</button>
+                        <button class="category-btn" data-category="offense">Offense</button>
+                        <button class="category-btn" data-category="defense">Defense</button>
+                        <button class="category-btn" data-category="special">Special</button>
+                    </div>
+                    <div class="playbook-grid" id="playbook-grid"></div>
+                </div>
+                <div class="panel-section" id="save-section">
+                    <div class="section-header"><span class="section-icon">💾</span><span class="section-title">Save / Load</span></div>
+                    <div class="save-controls">
+                        <input type="text" id="scheme-name" placeholder="Название схемы..." />
+                        <button class="action-btn" id="save-scheme">💾</button>
+                    </div>
+                    <div class="schemes-list" id="schemes-list"><div class="empty-state"><span class="empty-icon">📂</span>Нет схем</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Кастомный confirm диалог -->
+    <div class="confirm-overlay" id="confirm-overlay" style="display:none">
+        <div class="confirm-dialog">
+            <div class="confirm-icon" id="confirm-icon">⚠️</div>
+            <div class="confirm-msg" id="confirm-msg">Вы уверены?</div>
+            <div class="confirm-actions">
+                <button class="confirm-btn confirm-cancel" id="confirm-cancel">Отмена</button>
+                <button class="confirm-btn confirm-ok" id="confirm-ok">Да</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-content">
+            <img src="bropro.gif" alt="Loading..." class="loading-gif">
+            <div class="loading-text">Basketball Playbook Pro</div>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
