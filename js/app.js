@@ -7,6 +7,7 @@ import { TouchManager } from './modules/touch.js';
 import { StorageManager } from './modules/storage.js';
 import { PlaybookManager } from './modules/playbook.js';
 import { RecorderManager } from './modules/recorder.js';
+import { ICONS, replaceEmojiWithIcon } from './modules/icons.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // ============================================
@@ -129,19 +130,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSheet(state, instant = false) {
         sheetState = state;
+        
         if (state === 'collapsed') {
             bottomPanel.style.transform = `translateY(calc(100% - ${HANDLE_HEIGHT}px))`;
-            handleArrow.classList.add('rotated');
+            bottomPanel.style.maxHeight = '';
             bottomPanel.classList.add('collapsed');
-            // Отключаем анимацию при схлопывании по таймеру (мгновенно)
-            if (instant) {
-                bottomPanel.style.transition = 'none';
-                requestAnimationFrame(() => { bottomPanel.style.transition = ''; });
-            }
+            handleArrow.classList.add('rotated');
+        } else if (state === 'half') {
+            // Фиксированная высота 210px — видно handle, табы, Players group + пространство
+            bottomPanel.style.transform = 'translateY(0)';
+            bottomPanel.style.maxHeight = '210px';
+            bottomPanel.classList.remove('collapsed');
+            handleArrow.classList.remove('rotated');
         } else {
             bottomPanel.style.transform = 'translateY(0)';
-            handleArrow.classList.remove('rotated');
+            bottomPanel.style.maxHeight = '';
             bottomPanel.classList.remove('collapsed');
+            handleArrow.classList.remove('rotated');
+        }
+        
+        if (instant) {
+            bottomPanel.style.transition = 'none';
+            requestAnimationFrame(() => { bottomPanel.style.transition = ''; });
         }
     }
 
@@ -223,10 +233,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ============================================
-    // TOOL SELECTION
+    // TOOL SELECTION & HINTS
     // ============================================
+    const POSITION_HINTS = {
+        'PG': 'Разыгрывающий защитник',
+        'SG': 'Атакующий защитник', 
+        'SF': 'Легкий форвард',
+        'PF': 'Тяжелый форвард',
+        'C': 'Центровой',
+        'defense': 'Защитник',
+        'ball': 'Мяч'
+    };
+
     const toolButtons = document.querySelectorAll('#tools-section .tool-btn');
     const hintText = document.getElementById('hint-text');
+
+    // Плавающая подсказка над панелью
+    const floatingHint = document.createElement('div');
+    floatingHint.id = 'floating-hint';
+    floatingHint.className = 'floating-hint';
+    document.body.appendChild(floatingHint);
+
+    function setHint(toolName, hint) {
+        if (hintText) hintText.textContent = (toolName ? toolName + ' — ' : '') + (hint || '');
+        const text = (toolName ? toolName + ' — ' : '') + (hint || '');
+        floatingHint.textContent = text;
+        if (currentTool && currentTool !== 'select') {
+            floatingHint.classList.add('visible');
+        } else {
+            floatingHint.classList.remove('visible');
+        }
+    }
 
     toolButtons.forEach(btn => btn.classList.remove('active'));
     const defaultTool = document.querySelector('#tools-section .tool-btn.pg');
@@ -256,7 +293,9 @@ document.addEventListener('DOMContentLoaded', function() {
             currentTool = tool; currentToolType = type;
             playerManager.setTool(tool, type);
             const names = { 'PG': 'PG', 'SG': 'SG', 'SF': 'SF', 'PF': 'PF', 'C': 'C', 'defense': '⚪ Защитник', 'ball': '🏀 Мяч' };
-            setHint(names[type] || type, 'Нажмите на площадку');
+            const posDesc = POSITION_HINTS[type] || 'Нажмите на площадку';
+            setHint(names[type] || type, posDesc);
+            updateSheet('half');
         } else if (tool === 'drawing') {
             currentTool = 'drawing'; currentToolType = type;
             if (type === 'eraser') {
@@ -268,14 +307,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const names = { 'arrow': '➡️ Стрелка', 'line': '📏 Линия', 'dashed': '••• Пунктир', 'wavy': '〰️ Волнистая', 'screen': '🛡️ Экран', 'shot': '🎯 Бросок', 'rebound': '⬆️ Подбор' };
                 setHint(names[type] || type, 'Проведите по площадке');
             }
+            updateSheet('half');
         } else if (tool === 'select') {
             currentTool = 'select'; currentToolType = null;
             setHint('✏️ Выделение', 'Перетащите игрока');
+            updateSheet('expanded');
         }
-    }
-
-    function setHint(toolName, hint) {
-        if (hintText) hintText.textContent = (toolName ? toolName + ' — ' : '') + (hint || '');
     }
 
     // ============================================
@@ -298,6 +335,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentTool === 'player' || currentTool === 'ball') {
             playerManager.addPlayer(point.x, point.y);
             updatePlayerCount();
+            
+            // Сразу скрываем подсказку
+            floatingHint.classList.remove('visible');
+            
+            // Одноразовое размещение: после добавления сбрасываем инструмент на select
+            toolButtons.forEach(t => t.classList.remove('active'));
+            const selectBtn = document.querySelector('#tools-section .tool-btn.select');
+            if (selectBtn) {
+                selectBtn.classList.add('active');
+                setToolFromButton(selectBtn);
+            }
             return;
         }
         // Авто-сворачивание при начале рисования
@@ -793,10 +841,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
+    // ICON INIT — заменяем emoji на SVG из icons.js
+    // ============================================
+    function initIcons() {
+        document.querySelectorAll('[data-icon]').forEach(el => {
+            const name = el.dataset.icon;
+            const svg = ICONS[name];
+            if (svg) {
+                const wrapper = document.createElement('span');
+                wrapper.className = 'svg-icon svg-icon-' + name;
+                wrapper.innerHTML = svg;
+                el.textContent = '';
+                el.appendChild(wrapper);
+            }
+        });
+        // Табы тоже заменяем
+        document.querySelectorAll('.tab-icon').forEach(el => {
+            const text = el.textContent.trim();
+            const map = { '🛠': 'tools', '📋': 'playbook', '💾': 'save' };
+            const name = map[text];
+            if (name && ICONS[name]) {
+                const wrapper = document.createElement('span');
+                wrapper.className = 'svg-icon svg-icon-' + name;
+                wrapper.innerHTML = ICONS[name];
+                el.textContent = '';
+                el.appendChild(wrapper);
+            }
+        });
+    }
+
+    // ============================================
     // INIT
     // ============================================
+    initIcons();
     initSaveSystem();
     initPlaybookLibrary();
     updatePlayerCount();
-    console.log('🏀 v4.5 — Playback with outerHTML');
+    console.log('🏀 v5.0 — SVG Phosphor-style icons');
 });

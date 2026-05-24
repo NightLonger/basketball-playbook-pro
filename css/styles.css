@@ -167,6 +167,21 @@ html, body {
     transform: translateY(0);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
+/* Половина — показываем handle, табы и только Players group */
+.bottom-panel.half {
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+}
+.bottom-panel.max-h-limited .panel-content {
+    max-height: 105px;
+    overflow: hidden !important;
+}
+.bottom-panel.half .tool-group:not(:first-of-type),
+.bottom-panel.half .record-bar,
+.bottom-panel.half .tool-hint,
+.bottom-panel.half .panel-section > :not(.tool-group):not(.panel-tabs) {
+    display: none !important;
+}
+
 /* Скрытая (свернутая) тень становится легче */
 .bottom-panel.collapsed {
     box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
@@ -287,6 +302,33 @@ html, body {
     width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     font-size: 18px; font-weight: 700; color: white; transition: var(--transition-fast);
     position: relative; z-index: 1; line-height: 1;
+}
+
+/* SVG иконки внутри tool-icon и tab-icon */
+.svg-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: white;
+}
+.svg-icon svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+.tool-icon .svg-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.tab-icon .svg-icon svg {
+    width: 18px;
+    height: 18px;
+}
+.header-center .tool-icon .svg-icon svg {
+    width: 16px;
+    height: 16px;
 }
 .tool-group-buttons .tool-btn .tool-label { display: none; }
 .tool-group-buttons .tool-btn.active {
@@ -433,6 +475,35 @@ html, body {
 .confirm-cancel { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-primary); }
 .confirm-ok { background: var(--danger); color: white; box-shadow: 0 0 10px rgba(239,68,68,0.3); }
 .confirm-ok.load { background: var(--success); box-shadow: 0 0 10px rgba(34,197,94,0.3); }
+
+/* ============================================
+   FLOATING HINT — подсказка над панелью
+   ============================================ */
+.floating-hint {
+    position: fixed;
+    left: 50%;
+    bottom: calc(210px + 10px); /* над свернутой панелью */
+    transform: translateX(-50%) translateY(10px);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 55;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-primary);
+    box-shadow: var(--shadow-md);
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
+}
+.floating-hint.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
 
 .toast {
     position: fixed; top: calc(var(--header-height) + var(--safe-top) + 8px); left: 50%;
