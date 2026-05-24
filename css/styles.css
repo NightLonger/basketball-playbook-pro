@@ -283,25 +283,51 @@ html, body {
 /* ============================================
    TOOL GROUPS — компактные, 4 колонки, крупные emoji
    ============================================ */
-.tool-group { margin-bottom: 6px; }
+.tool-group { margin-bottom: 6px; position: relative; }
+
+/* Градиентный разделитель между группами */
+.tool-group + .tool-group::before {
+    content: ''; position: absolute; top: -4px; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-primary), transparent);
+    opacity: 0.5;
+}
+
 .tool-group-title { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 9px; font-weight: 600; color: var(--text-secondary); padding: 2px 2px 3px; text-transform: uppercase; letter-spacing: 0.8px; }
 .tool-group-title .group-icon { font-size: 10px; }
 .tool-group-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .tool-group-buttons .tool-btn {
     display: flex; align-items: center; justify-content: center;
     width: 100%; height: 44px; border: 1px solid var(--border-subtle); background: var(--bg-secondary);
-    border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition-fast); flex-shrink: 0;
+    border-radius: var(--radius-sm); cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+                border-color var(--transition-fast),
+                box-shadow var(--transition-fast),
+                background var(--transition-fast);
+    flex-shrink: 0;
     position: relative; overflow: hidden;
 }
 .tool-group-buttons .tool-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.88);
     border-color: var(--primary);
-    box-shadow: 0 0 8px var(--primary-glow);
+    box-shadow: 0 0 12px var(--primary-glow);
 }
 .tool-group-buttons .tool-btn .tool-icon {
     width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 700; color: white; transition: var(--transition-fast);
+    font-size: 18px; font-weight: 700; color: white;
+    transition: transform 0.35s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+                box-shadow var(--transition-fast);
     position: relative; z-index: 1; line-height: 1;
+}
+/* Анимация иконки при активации */
+.tool-group-buttons .tool-btn.active .tool-icon {
+    animation: iconPop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+@keyframes iconPop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.2) rotate(8deg); }
+    70% { transform: scale(0.95) rotate(-3deg); }
+    100% { transform: scale(1.1) rotate(0deg); }
 }
 
 /* SVG иконки внутри tool-icon и tab-icon */
@@ -332,13 +358,36 @@ html, body {
 }
 .tool-group-buttons .tool-btn .tool-label { display: none; }
 .tool-group-buttons .tool-btn.active {
-    background: var(--bg-card); border-color: var(--primary);
-    box-shadow: 0 0 6px var(--primary-glow);
+    background: var(--bg-card);
 }
+
+/* Премиальная подсветка — каждая кнопка светится своим цветом */
 .tool-group-buttons .tool-btn.active .tool-icon {
-    transform: scale(1.1);
-    box-shadow: 0 0 10px currentColor;
+    transform: scale(1.15);
+    filter: brightness(1.3);
+    box-shadow: 0 0 16px currentColor, 0 0 32px currentColor;
 }
+
+/* Цвета подсветки для каждой позиции */
+.tool-btn.pg.active .tool-icon { box-shadow: 0 0 16px #3366ff, 0 0 32px rgba(51,102,255,0.4); }
+.tool-btn.sg.active .tool-icon { box-shadow: 0 0 16px #33ccff, 0 0 32px rgba(51,204,255,0.4); }
+.tool-btn.sf.active .tool-icon { box-shadow: 0 0 16px #00cc99, 0 0 32px rgba(0,204,153,0.4); }
+.tool-btn.pf.active .tool-icon { box-shadow: 0 0 16px #99cc00, 0 0 32px rgba(153,204,0,0.4); }
+.tool-btn.c.active .tool-icon { box-shadow: 0 0 16px #ffcc00, 0 0 32px rgba(255,204,0,0.4); }
+.tool-btn.defense.active .tool-icon { box-shadow: 0 0 16px #ef4444, 0 0 32px rgba(239,68,68,0.4); }
+.tool-btn.ball.active .tool-icon { box-shadow: 0 0 16px #8B4513, 0 0 32px rgba(139,69,19,0.4); }
+.tool-btn.select.active .tool-icon { box-shadow: 0 0 16px #6b6b7b, 0 0 32px rgba(107,107,123,0.4); }
+.tool-btn.arrow.active .tool-icon { box-shadow: 0 0 16px var(--primary), 0 0 32px rgba(255,107,0,0.4); }
+.tool-btn.line.active .tool-icon { box-shadow: 0 0 16px #ff3b30, 0 0 32px rgba(255,59,48,0.4); }
+.tool-btn.dashed.active .tool-icon { box-shadow: 0 0 16px #34c759, 0 0 32px rgba(52,199,89,0.4); }
+.tool-btn.wavy.active .tool-icon { box-shadow: 0 0 16px #af52de, 0 0 32px rgba(175,82,222,0.4); }
+.tool-btn.screen.active .tool-icon { box-shadow: 0 0 16px #ff9500, 0 0 32px rgba(255,149,0,0.4); }
+.tool-btn.shot.active .tool-icon { box-shadow: 0 0 16px #ff3b30, 0 0 32px rgba(255,59,48,0.4); }
+.tool-btn.rebound.active .tool-icon { box-shadow: 0 0 16px #ff3b30, 0 0 32px rgba(255,59,48,0.4); }
+.tool-btn.eraser.active .tool-icon { box-shadow: 0 0 16px var(--warning), 0 0 32px rgba(245,158,11,0.4); }
+.tool-btn.undo.active .tool-icon,
+.tool-btn.redo.active .tool-icon { box-shadow: 0 0 16px #5856d6, 0 0 32px rgba(88,86,214,0.4); }
+.tool-btn.clear-all.active .tool-icon { box-shadow: 0 0 16px var(--danger), 0 0 32px rgba(239,68,68,0.4); }
 
 /* Микроанимация pulse при нажатии */
 @keyframes btn-pulse {

@@ -106,11 +106,11 @@ export class PlayerManager {
         text.setAttribute('x', x);
         text.setAttribute('y', y + 1.2);
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-size', '2.8');
+        text.setAttribute('font-size', '4');
         text.setAttribute('fill', '#fff');
-        text.setAttribute('font-weight', '700');
+        text.setAttribute('font-weight', '800');
         text.setAttribute('font-family', "'Oswald','Inter',Arial,sans-serif");
-        text.setAttribute('letter-spacing', '0.3');
+        text.setAttribute('letter-spacing', '0.5');
         text.textContent = config.label;
         text.style.pointerEvents = 'none';
         text.style.userSelect = 'none';

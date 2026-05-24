@@ -269,6 +269,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const defaultTool = document.querySelector('#tools-section .tool-btn.pg');
     if (defaultTool) { defaultTool.classList.add('active'); setToolFromButton(defaultTool); }
 
+    // Тактильный отклик (вибрация на мобильных)
+    function haptic() {
+        try { navigator.vibrate && navigator.vibrate(10); } catch(e) {}
+    }
+
     toolButtons.forEach(btn => {
         btn.addEventListener('click', function() {
             if (this.id === 'undo-btn') { undoLastAction(); return; }
@@ -277,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
             toolButtons.forEach(t => t.classList.remove('active'));
             this.classList.add('active');
             setToolFromButton(this);
+            haptic();
         });
     });
 
