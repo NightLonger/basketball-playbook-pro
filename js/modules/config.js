@@ -32,10 +32,13 @@ export const TOOL_LABELS = {
     'Мяч': { tool: 'ball', type: 'ball' },
     'Выделение': { tool: 'select', type: null },
     // Drawing
-    'Стрелка': { tool: 'drawing', type: 'arrow' },
+    'Движение': { tool: 'drawing', type: 'arrow' },
     'Линия': { tool: 'drawing', type: 'line' },
-    'Пунктир': { tool: 'drawing', type: 'dashed' },
-    'Волнистая': { tool: 'drawing', type: 'wavy' },
+    'Передача': { tool: 'drawing', type: 'dashed' },
+    'Ведение': { tool: 'drawing', type: 'wavy' },
+    'Заслон': { tool: 'drawing', type: 'screen' },
+    'Бросок': { tool: 'drawing', type: 'shot' },
+    'Подбор': { tool: 'drawing', type: 'rebound' },
     'Ластик': { tool: 'drawing', type: 'eraser' }
 };
 

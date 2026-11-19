@@ -39,26 +39,32 @@ export class CourtManager {
     }
 
     /**
-     * Получить точку на SVG из события мыши/тача
+     * Получить точку на SVG из события мыши/тача (с учётом viewBox/CTM/preserveAspectRatio)
      */
     getSVGPoint(clientX, clientY) {
-        const rect = this.svg.getBoundingClientRect();
-        const vBox = this.svg.viewBox.animVal;
-        
-        const x = ((clientX - rect.left) / rect.width) * vBox.width;
-        const y = ((clientY - rect.top) / rect.height) * vBox.height;
-        
-        return { x, y };
+        return this.getSVGPointTransformed(clientX, clientY);
     }
 
     /**
      * Получить точку через SVG API (для корректного transform)
      */
     getSVGPointTransformed(clientX, clientY) {
+        const ctm = this.svg.getScreenCTM();
+        if (!ctm) {
+            const rect = this.svg.getBoundingClientRect();
+            const vBox = this.svg.viewBox.baseVal;
+            const w = vBox && vBox.width ? vBox.width : 150;
+            const h = vBox && vBox.height ? vBox.height : 280;
+            return {
+                x: ((clientX - rect.left) / rect.width) * w,
+                y: ((clientY - rect.top) / rect.height) * h
+            };
+        }
         const point = this.svg.createSVGPoint();
         point.x = clientX;
         point.y = clientY;
-        return point.matrixTransform(this.svg.getScreenCTM().inverse());
+        const p = point.matrixTransform(ctm.inverse());
+        return { x: p.x, y: p.y };
     }
 
     /**

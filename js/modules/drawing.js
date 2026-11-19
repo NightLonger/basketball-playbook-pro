@@ -138,52 +138,73 @@ export class DrawingManager {
         }
     }
 
-    // === Экран (заслон) ===
+    // === Заслон (screen) — перевёрнутая Т ===
     _startScreen(point) {
-        // Создаем временную линию для предпросмотра
         this.drawingCounter++;
         const config = drawingConfig.screen;
-        
-        this.currentPath = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        this.currentPath.setAttribute('x1', point.x);
-        this.currentPath.setAttribute('y1', point.y);
-        this.currentPath.setAttribute('x2', point.x);
-        this.currentPath.setAttribute('y2', point.y);
-        this.currentPath.setAttribute('stroke', config.color);
-        this.currentPath.setAttribute('stroke-width', config.strokeWidth);
-        this.currentPath.setAttribute('stroke-linecap', 'round');
-        this.currentPath.setAttribute('class', 'drawing-element screen-element');
-        this.currentPath.setAttribute('id', `drawing-${this.drawingCounter}`);
-        
-        this.layers.drawing.appendChild(this.currentPath);
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'drawing-element screen-element');
+        g.setAttribute('id', `drawing-${this.drawingCounter}`);
+
+        const bar = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        bar.setAttribute('class', 'screen-bar');
+        bar.setAttribute('stroke', config.color);
+        bar.setAttribute('stroke-width', config.strokeWidth);
+        bar.setAttribute('stroke-linecap', 'round');
+
+        const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        stem.setAttribute('class', 'screen-stem');
+        stem.setAttribute('stroke', config.color);
+        stem.setAttribute('stroke-width', config.strokeWidth);
+        stem.setAttribute('stroke-linecap', 'round');
+
+        [bar, stem].forEach(l => {
+            l.setAttribute('x1', point.x); l.setAttribute('y1', point.y);
+            l.setAttribute('x2', point.x); l.setAttribute('y2', point.y);
+        });
+
+        g.appendChild(bar);
+        g.appendChild(stem);
+        this.currentPath = g;
+        this.layers.drawing.appendChild(g);
+    }
+
+    _setScreenGeometry(g, startPoint, endPoint) {
+        const dx = endPoint.x - startPoint.x;
+        const dy = endPoint.y - startPoint.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        if (length < 0.001) return;
+        const ux = dx / length, uy = dy / length; // направление жеста
+        const nx = -uy, ny = ux; // перпендикуляр
+        const barLen = 6, stemLen = 4;
+        const hb = barLen / 2;
+        const cx = startPoint.x, cy = startPoint.y;
+
+        // перекладина (заслон)
+        const bx1 = cx + nx * hb, by1 = cy + ny * hb;
+        const bx2 = cx - nx * hb, by2 = cy - ny * hb;
+        // ножка (перевёрнутая Т) — в направлении жеста
+        const sx2 = cx + ux * stemLen, sy2 = cy + uy * stemLen;
+
+        const bar = g.querySelector('.screen-bar') || g.children[0];
+        const stem = g.querySelector('.screen-stem') || g.children[1];
+        if (bar) {
+            bar.setAttribute('x1', bx1); bar.setAttribute('y1', by1);
+            bar.setAttribute('x2', bx2); bar.setAttribute('y2', by2);
+        }
+        if (stem) {
+            stem.setAttribute('x1', cx); stem.setAttribute('y1', cy);
+            stem.setAttribute('x2', sx2); stem.setAttribute('y2', sy2);
+        }
     }
 
     _continueScreen(point) {
         if (!this.currentPath || !this.startPoint) return;
-        
-        // Показываем направление движения для экрана
         const dx = point.x - this.startPoint.x;
         const dy = point.y - this.startPoint.y;
         const length = Math.sqrt(dx * dx + dy * dy);
-        
         if (length < 1) return;
-        
-        // Нормализуем и поворачиваем на 90 градусов
-        const nx = -dy / length;
-        const ny = dx / length;
-        
-        const screenLength = 6;
-        const halfScreen = screenLength / 2;
-        
-        const x1 = this.startPoint.x + nx * halfScreen;
-        const y1 = this.startPoint.y + ny * halfScreen;
-        const x2 = this.startPoint.x - nx * halfScreen;
-        const y2 = this.startPoint.y - ny * halfScreen;
-        
-        this.currentPath.setAttribute('x1', x1);
-        this.currentPath.setAttribute('y1', y1);
-        this.currentPath.setAttribute('x2', x2);
-        this.currentPath.setAttribute('y2', y2);
+        this._setScreenGeometry(this.currentPath, this.startPoint, point);
     }
 
     _endScreen(point) {
@@ -193,18 +214,20 @@ export class DrawingManager {
             }
             return;
         }
-        
+
         const dx = point.x - this.startPoint.x;
         const dy = point.y - this.startPoint.y;
         const length = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (length < MIN_LINE_LENGTH) {
             if (this.currentPath.parentNode) {
                 this.layers.drawing.removeChild(this.currentPath);
             }
             return;
         }
-        
+
+        this._setScreenGeometry(this.currentPath, this.startPoint, point);
+
         const drawingData = {
             id: `drawing-${this.drawingCounter}`,
             type: 'screen',
@@ -214,9 +237,9 @@ export class DrawingManager {
                 endX: point.x, endY: point.y
             }
         };
-        
+
         this.drawings.push(drawingData);
-        
+
         if (this.onHistoryChange) {
             this.onHistoryChange({
                 type: 'add_drawing',
@@ -376,13 +399,14 @@ export class DrawingManager {
         const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
         marker.setAttribute('id', `arrowhead-${this.drawingCounter}`);
-        marker.setAttribute('markerWidth', '4');
-        marker.setAttribute('markerHeight', '3');
-        marker.setAttribute('refX', '3');
-        marker.setAttribute('refY', '1.5');
+        marker.setAttribute('markerUnits', 'userSpaceOnUse');
+        marker.setAttribute('markerWidth', '5');
+        marker.setAttribute('markerHeight', '3.5');
+        marker.setAttribute('refX', '5');
+        marker.setAttribute('refY', '1.75');
         marker.setAttribute('orient', 'auto');
 
-        arrowPath.setAttribute('d', 'M0,0 L0,3 L4,1.5 z');
+        arrowPath.setAttribute('d', 'M0,0 L0,3.5 L5,1.75 z');
         arrowPath.setAttribute('fill', drawingConfig.arrow.color);
 
         marker.appendChild(arrowPath);
@@ -392,45 +416,38 @@ export class DrawingManager {
         line.setAttribute('marker-end', `url(#arrowhead-${this.drawingCounter})`);
     }
 
-    // === Экран (заслон) - вертикальная или горизонтальная линия с утолщением ===
+    // === Заслон (screen) — перевёрнутая Т ===
     _createScreen(startPoint, endPoint) {
         this.drawingCounter++;
         const config = drawingConfig.screen;
-        
-        // Экран рисуется как перпендикулярная линия к направлению движения
+
         const dx = endPoint.x - startPoint.x;
         const dy = endPoint.y - startPoint.y;
         const length = Math.sqrt(dx * dx + dy * dy);
-        
         if (length < MIN_LINE_LENGTH) return null;
-        
-        // Нормализуем и поворачиваем на 90 градусов
-        const nx = -dy / length;
-        const ny = dx / length;
-        
-        // Длина экрана (стандартная)
-        const screenLength = 6;
-        const halfScreen = screenLength / 2;
-        
-        const x1 = startPoint.x + nx * halfScreen;
-        const y1 = startPoint.y + ny * halfScreen;
-        const x2 = startPoint.x - nx * halfScreen;
-        const y2 = startPoint.y - ny * halfScreen;
-        
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', x1);
-        line.setAttribute('y1', y1);
-        line.setAttribute('x2', x2);
-        line.setAttribute('y2', y2);
-        line.setAttribute('stroke', config.color);
-        line.setAttribute('stroke-width', config.strokeWidth);
-        line.setAttribute('stroke-linecap', 'round');
-        line.setAttribute('class', 'drawing-element screen-element');
-        line.setAttribute('id', `drawing-${this.drawingCounter}`);
-        
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'drawing-element screen-element');
+        g.setAttribute('id', `drawing-${this.drawingCounter}`);
+
+        const bar = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        bar.setAttribute('class', 'screen-bar');
+        bar.setAttribute('stroke', config.color);
+        bar.setAttribute('stroke-width', config.strokeWidth);
+        bar.setAttribute('stroke-linecap', 'round');
+        const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        stem.setAttribute('class', 'screen-stem');
+        stem.setAttribute('stroke', config.color);
+        stem.setAttribute('stroke-width', config.strokeWidth);
+        stem.setAttribute('stroke-linecap', 'round');
+        g.appendChild(bar);
+        g.appendChild(stem);
+
+        this._setScreenGeometry(g, startPoint, endPoint);
+
         return {
-            element: line,
-            points: { x1, y1, x2, y2, startX: startPoint.x, startY: startPoint.y }
+            element: g,
+            points: { startX: startPoint.x, startY: startPoint.y, endX: endPoint.x, endY: endPoint.y }
         };
     }
 
@@ -487,27 +504,7 @@ export class DrawingManager {
         line.setAttribute('class', 'drawing-element rebound-element');
         line.setAttribute('id', `drawing-${this.drawingCounter}`);
         
-        // Добавляем наконечник стрелки
-        const drawingLayer = this.layers.drawing;
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        
-        marker.setAttribute('id', `rebound-arrow-${this.drawingCounter}`);
-        marker.setAttribute('markerWidth', '4');
-        marker.setAttribute('markerHeight', '3');
-        marker.setAttribute('refX', '3');
-        marker.setAttribute('refY', '1.5');
-        marker.setAttribute('orient', 'auto');
-        
-        arrowPath.setAttribute('d', 'M0,0 L0,3 L4,1.5 z');
-        arrowPath.setAttribute('fill', config.color);
-        
-        marker.appendChild(arrowPath);
-        defs.appendChild(marker);
-        drawingLayer.appendChild(defs);
-        
-        line.setAttribute('marker-end', `url(#rebound-arrow-${this.drawingCounter})`);
+        // Наконечник только для стрелки "Движение" (arrow), у подбора — без наконечника
         
         return {
             element: line,
@@ -649,25 +646,31 @@ export class DrawingManager {
      */
     recreateElementFromAttrs(type, attrs, id) {
         let el;
-        if (type === 'shot') {
-            el = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const svgNS = 'http://www.w3.org/2000/svg';
+        if (type === 'shot' || type === 'screen') {
+            if (type === 'screen' && !attrs._children) {
+                // Обратная совместимость: старый формат заслона как одиночная линия
+                el = document.createElementNS(svgNS, 'line');
+            } else {
+                el = document.createElementNS(svgNS, 'g');
+            }
         } else if (type === 'wavy') {
-            el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            el = document.createElementNS(svgNS, 'path');
         } else {
-            el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            el = document.createElementNS(svgNS, 'line');
         }
         el.setAttribute('id', id);
-        
+
         // Восстанавливаем основные атрибуты
         for (const key in attrs) {
             if (key === '_children' || key === '_marker' || key.startsWith('_')) continue;
             el.setAttribute(key, attrs[key]);
         }
-        
-        // Для shot — восстанавливаем дочерние элементы
+
+        // Для групп (shot/screen) — восстанавливаем дочерние элементы
         if (attrs._children) {
             attrs._children.forEach(childAttrs => {
-                const child = document.createElementNS('http://www.w3.org/2000/svg', childAttrs._tag || 'line');
+                const child = document.createElementNS(svgNS, childAttrs._tag || 'line');
                 for (const key in childAttrs) {
                     if (key === '_tag') continue;
                     child.setAttribute(key, childAttrs[key]);
@@ -675,7 +678,45 @@ export class DrawingManager {
                 el.appendChild(child);
             });
         }
-        
+
+        // Восстанавливаем marker только для стрелки "Движение" (arrow)
+        if (attrs._marker && type === 'arrow') {
+            const defs = document.createElementNS(svgNS, 'defs');
+            const markerTag = attrs._marker._tag || 'marker';
+            const marker = document.createElementNS(svgNS, markerTag);
+            const newMarkerId = (id || ('drawing-' + this.drawingCounter)) + '-marker-' + (++this.drawingCounter);
+            marker.setAttribute('id', newMarkerId);
+            for (const key in attrs._marker) {
+                if (key === '_children' || key === '_tag' || key === 'id' || key.startsWith('_')) continue;
+                marker.setAttribute(key, attrs._marker[key]);
+            }
+            // Чёткий наконечник в координатах площадки
+            marker.setAttribute('markerUnits', 'userSpaceOnUse');
+            marker.setAttribute('markerWidth', '5');
+            marker.setAttribute('markerHeight', '3.5');
+            marker.setAttribute('refX', '5');
+            marker.setAttribute('refY', '1.75');
+            marker.setAttribute('orient', 'auto');
+            if (attrs._marker._children) {
+                attrs._marker._children.forEach(childAttrs => {
+                    const child = document.createElementNS(svgNS, childAttrs._tag || 'path');
+                    for (const key in childAttrs) {
+                        if (key === '_tag') continue;
+                        child.setAttribute(key, childAttrs[key]);
+                    }
+                    if (child.tagName === 'path') child.setAttribute('d', 'M0,0 L0,3.5 L5,1.75 z');
+                    marker.appendChild(child);
+                });
+            }
+            defs.appendChild(marker);
+            if (this.layers && this.layers.drawing) {
+                this.layers.drawing.appendChild(defs);
+            }
+            el.setAttribute('marker-end', `url(#${newMarkerId})`);
+        } else if (type !== 'arrow') {
+            el.removeAttribute('marker-end');
+        }
+
         return el;
     }
 }

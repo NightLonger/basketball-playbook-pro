@@ -1,4 +1,4 @@
-// js/app.js v4.5 — Recording & Playback фикс
+// js/app.js v5.1 — Timeline playback PoC + UX fixes
 import { CourtManager } from './modules/court.js';
 import { PlayerManager } from './modules/players.js';
 import { DrawingManager } from './modules/drawing.js';
@@ -7,6 +7,7 @@ import { TouchManager } from './modules/touch.js';
 import { StorageManager } from './modules/storage.js';
 import { PlaybookManager } from './modules/playbook.js';
 import { RecorderManager } from './modules/recorder.js';
+import { TimelinePlayer } from './modules/timelinePlayer.js';
 import { ICONS, replaceEmojiWithIcon } from './modules/icons.js';
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // LOADING SCREEN
     // ============================================
     const loadingScreen = document.getElementById('loading-screen');
-    
+
     // Simulate loading and hide after resources are ready
     window.addEventListener('load', () => {
         setTimeout(() => {
@@ -33,34 +34,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmIcon = document.getElementById('confirm-icon');
     const confirmOk = document.getElementById('confirm-ok');
     const confirmCancel = document.getElementById('confirm-cancel');
-    
+
     function showConfirm(message, icon = '⚠️', isLoad = false) {
         return new Promise((resolve) => {
             confirmMsg.textContent = message;
             confirmIcon.textContent = icon;
             confirmOverlay.style.display = 'flex';
-            
+
             // Меняем стиль кнопки OK в зависимости от типа действия
             if (isLoad) {
                 confirmOk.classList.add('load');
             } else {
                 confirmOk.classList.remove('load');
             }
-            
+
             const handleOk = () => {
                 confirmOverlay.style.display = 'none';
                 confirmOk.removeEventListener('click', handleOk);
                 confirmCancel.removeEventListener('click', handleCancel);
                 resolve(true);
             };
-            
+
             const handleCancel = () => {
                 confirmOverlay.style.display = 'none';
                 confirmOk.removeEventListener('click', handleOk);
                 confirmCancel.removeEventListener('click', handleCancel);
                 resolve(false);
             };
-            
+
             confirmOk.addEventListener('click', handleOk);
             confirmCancel.addEventListener('click', handleCancel);
         });
@@ -69,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const courtSvg = document.getElementById('basketball-court');
     const courtManager = new CourtManager(courtSvg);
     const layers = courtManager.getLayers();
-    
+
     const playerManager = new PlayerManager(layers, courtManager);
     const drawingManager = new DrawingManager(layers, courtManager);
     const historyManager = new HistoryManager();
@@ -85,21 +86,23 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentToolType = null;
     let recordedSnapshots = [];
     let lastLoadedComboName = '';
+    let activeTimeline = null;
+    const timelinePlayer = new TimelinePlayer();
 
     // History callbacks — при любом изменении (игрок или рисунок) сохраняем снэпшот
     // ВАЖНО: captureSnapshot вызываем ТОЛЬКО если идёт запись, чтобы не испортить playback
-    playerManager.onHistoryChange = (action) => { 
-        historyManager.push(action); 
+    playerManager.onHistoryChange = (action) => {
+        historyManager.push(action);
         if (recorderManager.isRecording) {
-            recorderManager.captureFrame(); 
-            captureSnapshot(); 
+            recorderManager.captureFrame();
+            captureSnapshot();
         }
     };
-    drawingManager.onHistoryChange = (action) => { 
-        historyManager.push(action); 
+    drawingManager.onHistoryChange = (action) => {
+        historyManager.push(action);
         if (recorderManager.isRecording) {
-            recorderManager.captureFrame(); 
-            captureSnapshot(); 
+            recorderManager.captureFrame();
+            captureSnapshot();
         }
     };
     // Колбэк для захвата промежуточных позиций при перетаскивании (плавное движение)
@@ -130,41 +133,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSheet(state, instant = false) {
         sheetState = state;
-        
+
+        bottomPanel.classList.remove('collapsed', 'half', 'hint-bob');
+
         if (state === 'collapsed') {
             bottomPanel.style.transform = `translateY(calc(100% - ${HANDLE_HEIGHT}px))`;
             bottomPanel.style.maxHeight = '';
             bottomPanel.classList.add('collapsed');
             handleArrow.classList.add('rotated');
         } else if (state === 'half') {
-            // Фиксированная высота 210px — видно handle, табы, Players group + пространство
+            // Компактный режим: только секция игроков (остальное раскрывается вручную)
             bottomPanel.style.transform = 'translateY(0)';
-            bottomPanel.style.maxHeight = '210px';
-            bottomPanel.classList.remove('collapsed');
+            bottomPanel.style.maxHeight = '';
+            bottomPanel.classList.add('half', 'hint-bob');
             handleArrow.classList.remove('rotated');
         } else {
             bottomPanel.style.transform = 'translateY(0)';
             bottomPanel.style.maxHeight = '';
-            bottomPanel.classList.remove('collapsed');
             handleArrow.classList.remove('rotated');
         }
-        
+
         if (instant) {
             bottomPanel.style.transition = 'none';
             requestAnimationFrame(() => { bottomPanel.style.transition = ''; });
         }
     }
 
-    // Авто-сворачивание при начале рисования (делаем placeholder — будет подключено позже)
+    // Авто-сворачивание при начале рисования
     function autoCollapsePanel() {
         if (sheetState === 'expanded') {
             updateSheet('collapsed', false);
         }
     }
 
-    // Auto-expand при нажатии на площадку (если панель свернута — разворачиваем, но не сейчас)
-    // Использование: вызывать autoCollapsePanel() при старте рисования
-    updateSheet('expanded');
+    updateSheet('half');
 
     let sheetTouchStartY = 0, sheetTouchStartX = 0, sheetStartState = 'expanded';
 
@@ -205,16 +207,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const panelHeight = bottomPanel.offsetHeight;
-            const threshold = panelHeight * 0.3;
-            if (dy > threshold) updateSheet('collapsed');
-            else if (dy < -threshold) updateSheet('expanded');
-            else updateSheet(sheetStartState);
+            const panelHeight = bottomPanel.offsetHeight || 300;
+            const threshold = Math.max(40, panelHeight * 0.18);
+
+            if (sheetStartState === 'half') {
+                if (dy < -threshold) updateSheet('expanded');
+                else if (dy > threshold) updateSheet('collapsed');
+                else updateSheet('half');
+                return;
+            }
+
+            if (sheetStartState === 'collapsed') {
+                if (dy < -threshold) updateSheet('expanded');
+                else updateSheet('collapsed');
+                return;
+            }
+
+            // expanded
+            if (dy > threshold) updateSheet('half');
+            else updateSheet('expanded');
         }, { passive: true });
     });
 
     panelHandle.addEventListener('click', () => {
-        updateSheet(sheetState === 'expanded' ? 'collapsed' : 'expanded');
+        if (sheetState === 'expanded') updateSheet('half');
+        else if (sheetState === 'half') updateSheet('expanded');
+        else updateSheet('half');
     });
 
     // ============================================
@@ -237,7 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     const POSITION_HINTS = {
         'PG': 'Разыгрывающий защитник',
-        'SG': 'Атакующий защитник', 
+        'SG': 'Атакующий защитник',
         'SF': 'Легкий форвард',
         'PF': 'Тяжелый форвард',
         'C': 'Центровой',
@@ -310,14 +328,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 setHint('🧹 Ластик', 'Кликните на линию');
             } else {
                 drawingManager.setTool('drawing', type);
-                const names = { 'arrow': '➡️ Стрелка', 'line': '📏 Линия', 'dashed': '••• Пунктир', 'wavy': '〰️ Волнистая', 'screen': '🛡️ Экран', 'shot': '🎯 Бросок', 'rebound': '⬆️ Подбор' };
+                const names = { 'arrow': '➡️ Движение', 'line': '📏 Линия', 'dashed': '••• Передача', 'wavy': '〰️ Ведение', 'screen': '⊥ Заслон', 'shot': '🎯 Бросок', 'rebound': '⬆️ Подбор' };
                 setHint(names[type] || type, 'Проведите по площадке');
             }
             updateSheet('half');
-        } else if (tool === 'select') {
-            currentTool = 'select'; currentToolType = null;
-            setHint('✏️ Выделение', 'Перетащите игрока');
-            updateSheet('expanded');
+        } else {
+            currentTool = null;
+            currentToolType = null;
+            setHint('', 'Выберите инструмент');
+            updateSheet('half');
         }
     }
 
@@ -331,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Клик по игроку — не добавляем нового
             return;
         }
-        
+
         if (!currentTool || currentTool === 'select') return;
         e.preventDefault();
         const clientX = e.clientX || (e.touches && e.touches[0].clientX);
@@ -341,17 +360,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentTool === 'player' || currentTool === 'ball') {
             playerManager.addPlayer(point.x, point.y);
             updatePlayerCount();
-            
-            // Сразу скрываем подсказку
+
+            // Оставляем выбранный инструмент активным, чтобы можно было быстро разместить нескольких игроков
             floatingHint.classList.remove('visible');
-            
-            // Одноразовое размещение: после добавления сбрасываем инструмент на select
-            toolButtons.forEach(t => t.classList.remove('active'));
-            const selectBtn = document.querySelector('#tools-section .tool-btn.select');
-            if (selectBtn) {
-                selectBtn.classList.add('active');
-                setToolFromButton(selectBtn);
-            }
+            updateSheet('half');
             return;
         }
         // Авто-сворачивание при начале рисования
@@ -494,6 +506,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function startRecording() {
+        timelinePlayer.stop();
+        timelinePlayer.onProgress = null;
+        timelinePlayer.onEnd = null;
+        activeTimeline = null;
         playerManager.clearAll();
         drawingManager.clearAll();
         historyManager.clear();
@@ -535,19 +551,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const frames = recorderManager.getRecording();
         const last = frames[frames.length - 1];
         const timestamp = last ? last.timestamp : 0;
-        
+
         // Если последний снэпшот с тем же timestamp — обновляем его данные
         if (recordedSnapshots.length > 0 && recordedSnapshots[recordedSnapshots.length - 1].timestamp === timestamp) {
             recordedSnapshots[recordedSnapshots.length - 1].data = snap;
         } else {
             recordedSnapshots.push({ timestamp, data: snap });
         }
-        
+
         // Показываем время записи
         const totalSec = (timestamp / 1000).toFixed(1);
-        recStatus.textContent = (timestamp >= 60000) ? 
-            Math.floor(timestamp / 60000) + ':' + (totalSec.padStart(5, '0')) :
-            '00:' + totalSec.padStart(4, '0');
+        recStatus.textContent = (timestamp >= 60000) ?
+            Math.floor(timestamp / 60000) + ':' + (String(Math.floor((timestamp % 60000) / 1000)).padStart(2, '0')) + '.' + String(Math.floor((timestamp % 1000) / 100)) :
+            '00:' + String(Math.floor(timestamp / 1000)).padStart(2, '0') + '.' + String(Math.floor((timestamp % 1000) / 100));
     }
 
     // ============================================
@@ -582,9 +598,42 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePlayerCount();
     }
 
+    function finishPlaybackUI(message = '✅ Воспроизведение завершено') {
+        recPlayback.style.display = 'none';
+        playBtn.style.display = 'flex';
+        playbackFill.style.width = '0%';
+        recStatus.textContent = '00:00';
+        if (message) showToast(message);
+    }
+
     playBtn.addEventListener('click', function() {
+        if (timelinePlayer.isPlaying() || recorderManager.getStatus() === 'playing') return;
+
+        // Таймлайн-комбинация (плавный сценарный розыгрыш)
+        if (activeTimeline) {
+            recPlayback.style.display = 'flex';
+            playBtn.style.display = 'none';
+            playbackFill.style.width = '0%';
+            timelinePlayer.load(activeTimeline, { layers, playerManager, drawingManager });
+            timelinePlayer.onProgress = (p, elapsed) => {
+                playbackFill.style.width = Math.min(p * 100, 100) + '%';
+                const sec = Math.max(0, elapsed / 1000);
+                const m = Math.floor(sec / 60);
+                const s = (sec % 60).toFixed(1).padStart(4, '0');
+                recStatus.textContent = String(m).padStart(2, '0') + ':' + s;
+            };
+            timelinePlayer.onEnd = () => {
+                timelinePlayer.onProgress = null;
+                timelinePlayer.onEnd = null;
+                finishPlaybackUI('✅ Розыгрыш завершён');
+                updatePlayerCount();
+            };
+            timelinePlayer.play(1);
+            return;
+        }
+
+        // Покадровое воспроизведение (запись/старые снапшоты)
         if (recordedSnapshots.length < 2) { showToast('Нет данных для воспроизведения'); return; }
-        if (recorderManager.getStatus() === 'playing') return;
 
         recPlayback.style.display = 'flex';
         playBtn.style.display = 'none';
@@ -596,8 +645,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         recorderManager.onFrame = (frame) => {
             if (frame.data) renderSnapshotFrame(frame.data);
-            // Ищем индекс в recordedSnapshots для прогресс-бара
-            const idx = recordedSnapshots.indexOf(frame);
             const prog = totalDur > 0 ? (frame.timestamp / totalDur) * 100 : 0;
             playbackFill.style.width = Math.min(prog, 100) + '%';
         };
@@ -615,10 +662,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     stopPlaybackBtn.addEventListener('click', function() {
+        if (timelinePlayer.isPlaying() || activeTimeline) {
+            timelinePlayer.stop();
+            timelinePlayer.onProgress = null;
+            timelinePlayer.onEnd = null;
+        }
         recorderManager.stopPlayback();
         recPlayback.style.display = 'none';
         playBtn.style.display = 'flex';
         playbackFill.style.width = '0%';
+        recStatus.textContent = '00:00';
         recorderManager.onFrame = null;
         recorderManager.onPlaybackEnd = null;
         clearCourtLayers();
@@ -627,6 +680,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function clearCourtLayers() {
+        if (timelinePlayer.isPlaying()) timelinePlayer.stop();
         while (layers.players.firstChild) layers.players.removeChild(layers.players.firstChild);
         while (layers.drawing.firstChild) layers.drawing.removeChild(layers.drawing.firstChild);
         playerManager.getPlayers().length = 0;
@@ -648,10 +702,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveCurrentScheme() {
         const name = document.getElementById('scheme-name').value.trim();
         if (!name) { showToast('Введите название'); return; }
-        // Сохраняем с outerHTML
+        // Сохраняем через attrs (включая marker для стрелок), с обратной совместимостью при загрузке
         const drawingsData = drawingManager.getDrawings().map(d => ({
             type: d.type,
-            element: d.element.outerHTML,
+            attrs: drawingManager._getElementAttrs(d.element),
             points: d.points || {}
         }));
         const res = storageManager.save(name, playerManager.getPlayersData(), drawingsData);
@@ -693,24 +747,38 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!s) return;
         const confirmed = await showConfirm('Загрузить "' + s.name + '"?', '📥', true);
         if (!confirmed) return;
+        timelinePlayer.stop();
+        activeTimeline = null;
+        recordedSnapshots = [];
         clearCourtLayers();
         if (s.players) s.players.forEach(p => playerManager.addPlayer(p.x, p.y, p.type));
         if (s.drawings) {
             s.drawings.forEach(d => {
-                // Восстанавливаем из outerHTML
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = d.element;
-                const el = wrapper.firstChild;
-                if (el) {
-                    const did = 'drawing-' + drawingManager.drawingCounter++;
-                    el.setAttribute('id', did);
-                    layers.drawing.appendChild(el);
-                    drawingManager.getDrawings().push({ id: did, type: d.type, element: el, points: d.points || {} });
+                if (d.attrs) {
+                    const did = 'drawing-' + (++drawingManager.drawingCounter);
+                    const el = drawingManager.recreateElementFromAttrs(d.type, d.attrs, did);
+                    if (el) {
+                        layers.drawing.appendChild(el);
+                        drawingManager.getDrawings().push({ id: did, type: d.type, element: el, points: d.points || {} });
+                    }
+                } else if (d.element) {
+                    // Совместимость со старыми схемами (outerHTML)
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = d.element;
+                    const el = wrapper.firstChild;
+                    if (el) {
+                        const did = 'drawing-' + (++drawingManager.drawingCounter);
+                        el.setAttribute('id', did);
+                        layers.drawing.appendChild(el);
+                        drawingManager.getDrawings().push({ id: did, type: d.type, element: el, points: d.points || {} });
+                    }
                 }
             });
         }
         storageManager.setCurrentSchemeId(id);
         document.getElementById('scheme-name').value = s.name;
+        playBtn.classList.add('disabled');
+        recStatus.textContent = '00:00';
         updatePlayerCount();
         showToast('✅ "' + s.name + '" загружена');
     }
@@ -725,14 +793,32 @@ document.addEventListener('DOMContentLoaded', function() {
         playbookManager.onLoadCombo = async (combo) => {
             const confirmed = await showConfirm('Загрузить комбинацию "' + combo.name + '"?', '📋', true);
             if (!confirmed) return;
+            timelinePlayer.stop();
+            timelinePlayer.onProgress = null;
+            timelinePlayer.onEnd = null;
+            recorderManager.stopPlayback();
+            activeTimeline = null;
+            recordedSnapshots = [];
             clearCourtLayers();
             lastLoadedComboName = combo.name;
+
+            // Сценарный таймлайн: плавный розыгрыш по ключевым кадрам
+            if (combo.timeline) {
+                activeTimeline = combo.timeline;
+                timelinePlayer.load(activeTimeline, { layers, playerManager, drawingManager });
+                timelinePlayer.seek(0);
+                playBtn.classList.remove('disabled');
+                updatePlayerCount();
+                recStatus.textContent = '00:00';
+                showToast('✅ "' + combo.name + '" — нажмите ▶️ для розыгрыша');
+                return;
+            }
+
+            // Старый формат: пошаговые снапшоты
             const comboSnapshots = [];
 
-            // Расставляем игроков
-            if (combo.data.players) combo.data.players.forEach(p => playerManager.addPlayer(p.x, p.y, p.type));
-            
-            // Снэпшот 1: только игроки
+            if (combo.data && combo.data.players) combo.data.players.forEach(p => playerManager.addPlayer(p.x, p.y, p.type));
+
             comboSnapshots.push({
                 timestamp: 0,
                 data: {
@@ -741,29 +827,76 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            // Рисуем линии поэтапно
-            if (combo.data.drawings) {
+            if (combo.data && combo.data.drawings) {
                 combo.data.drawings.forEach((d, i) => {
-                    // Создаем SVG-элемент как в drawing.js
                     let el = null;
-                    if (d.type === 'arrow' || d.type === 'line' || d.type === 'dashed' || d.type === 'screen' || d.type === 'rebound') {
+                    if (d.type === 'arrow' || d.type === 'line' || d.type === 'dashed' || d.type === 'rebound') {
                         el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                         el.setAttribute('x1', d.points.x1 || d.points.startX);
                         el.setAttribute('y1', d.points.y1 || d.points.startY);
                         el.setAttribute('x2', d.points.x2 || d.points.endX);
                         el.setAttribute('y2', d.points.y2 || d.points.endY);
-                        
+
                         const cfg = { color: '#007aff', sw: 0.7, dash: 'none' };
                         if (d.type === 'arrow') cfg.color = '#007aff';
                         else if (d.type === 'dashed') { cfg.color = '#34c759'; cfg.dash = '2,2'; }
                         else if (d.type === 'line') cfg.color = '#ff3b30';
-                        else if (d.type === 'screen') { cfg.color = '#ff9500'; cfg.sw = 1.5; }
                         else if (d.type === 'rebound') { cfg.color = '#af52de'; cfg.dash = '3,2'; }
-                        
+
                         el.setAttribute('stroke', cfg.color);
                         el.setAttribute('stroke-width', String(cfg.sw));
                         el.setAttribute('stroke-dasharray', cfg.dash);
                         el.setAttribute('class', 'drawing-element');
+
+                        if (d.type === 'arrow') {
+                            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            const mid = 'cb-arrow-' + (++drawingManager.drawingCounter);
+                            marker.setAttribute('id', mid);
+                            marker.setAttribute('markerUnits', 'userSpaceOnUse');
+                            marker.setAttribute('markerWidth', '5');
+                            marker.setAttribute('markerHeight', '3.5');
+                            marker.setAttribute('refX', '5');
+                            marker.setAttribute('refY', '1.75');
+                            marker.setAttribute('orient', 'auto');
+                            path.setAttribute('d', 'M0,0 L0,3.5 L5,1.75 z');
+                            path.setAttribute('fill', cfg.color);
+                            marker.appendChild(path);
+                            defs.appendChild(marker);
+                            layers.drawing.appendChild(defs);
+                            el.setAttribute('marker-end', `url(#${mid})`);
+                        }
+                    } else if (d.type === 'screen') {
+                        const svgNS = 'http://www.w3.org/2000/svg';
+                        const sx = d.points.startX ?? d.points.x1;
+                        const sy = d.points.startY ?? d.points.y1;
+                        const ex = d.points.endX ?? d.points.x2;
+                        const ey = d.points.endY ?? d.points.y2;
+                        const dx = ex - sx, dy = ey - sy;
+                        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const ux = dx / len, uy = dy / len;
+                        const nx = -uy, ny = ux;
+                        const barLen = 6, stemLen = 4, hb = barLen / 2;
+                        const color = '#ff9500', sw = 1.5;
+
+                        const g = document.createElementNS(svgNS, 'g');
+                        g.setAttribute('class', 'drawing-element screen-element');
+                        const bar = document.createElementNS(svgNS, 'line');
+                        bar.setAttribute('x1', sx + nx * hb); bar.setAttribute('y1', sy + ny * hb);
+                        bar.setAttribute('x2', sx - nx * hb); bar.setAttribute('y2', sy - ny * hb);
+                        bar.setAttribute('stroke', color);
+                        bar.setAttribute('stroke-width', String(sw));
+                        bar.setAttribute('stroke-linecap', 'round');
+                        const stem = document.createElementNS(svgNS, 'line');
+                        stem.setAttribute('x1', sx); stem.setAttribute('y1', sy);
+                        stem.setAttribute('x2', sx + ux * stemLen); stem.setAttribute('y2', sy + uy * stemLen);
+                        stem.setAttribute('stroke', color);
+                        stem.setAttribute('stroke-width', String(sw));
+                        stem.setAttribute('stroke-linecap', 'round');
+                        g.appendChild(bar);
+                        g.appendChild(stem);
+                        el = g;
                     } else if (d.type === 'wavy') {
                         el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                         el.setAttribute('d', d.points.path || '');
@@ -795,7 +928,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         g.appendChild(l2);
                         el = g;
                     }
-                    
+
                     if (el) {
                         const did = 'drawing-cb-' + (++drawingManager.drawingCounter);
                         el.setAttribute('id', did);
@@ -803,7 +936,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         drawingManager.getDrawings().push({ id: did, type: d.type, element: el, points: d.points });
                     }
 
-                    // Снэпшот после каждого рисунка — с outerHTML
                     comboSnapshots.push({
                         timestamp: (i + 1) * 500,
                         data: {
@@ -883,5 +1015,5 @@ document.addEventListener('DOMContentLoaded', function() {
     initSaveSystem();
     initPlaybookLibrary();
     updatePlayerCount();
-    console.log('🏀 v5.0 — SVG Phosphor-style icons');
+    console.log('🏀 Basketball Playbook — timeline PoC ready');
 });

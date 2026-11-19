@@ -177,14 +177,19 @@ export class PlayerManager {
             this._clearAllHighlights();
             this._highlightPlayer(element, true);
             this.selectedPlayer = element;
+            element.classList.add('dragging');
             
             selectedElement = element;
             const point = this.court.getSVGPointTransformed(clientX, clientY);
-            
+
+            // Сбрасываем смещение перед новым перетаскиванием
+            offset.x = 0;
+            offset.y = 0;
+
             // Получаем текущие координаты игрока (с учетом предыдущих перемещений)
             startX = parseFloat(selectedElement.getAttribute('data-x')) || 0;
             startY = parseFloat(selectedElement.getAttribute('data-y')) || 0;
-            
+
             const transform = selectedElement.transform.baseVal;
             if (transform.length > 0 && transform.getItem(0).type === SVGTransform.SVG_TRANSFORM_TRANSLATE) {
                 offset.x = transform.getItem(0).matrix.e;
@@ -315,12 +320,14 @@ export class PlayerManager {
             }
             
             // Снимаем выделение через небольшую задержку
+            const elToClear = selectedElement;
             setTimeout(() => {
-                if (selectedElement) {
-                    this._highlightPlayer(selectedElement, false);
-                    selectedElement.style.cursor = '';
+                if (elToClear) {
+                    this._highlightPlayer(elToClear, false);
+                    elToClear.style.cursor = '';
+                    elToClear.classList.remove('dragging');
                 }
-                this.selectedPlayer = null;
+                if (this.selectedPlayer === elToClear) this.selectedPlayer = null;
             }, 100);
 
             selectedElement = null;

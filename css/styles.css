@@ -167,19 +167,27 @@ html, body {
     transform: translateY(0);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
-/* Половина — показываем handle, табы и только Players group */
+/* Половина — показываем handle, табы и только секцию Players */
 .bottom-panel.half {
     box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
 }
-.bottom-panel.max-h-limited .panel-content {
-    max-height: 105px;
-    overflow: hidden !important;
+.bottom-panel.half .panel-content {
+    max-height: none;
+    overflow: hidden;
 }
-.bottom-panel.half .tool-group:not(:first-of-type),
-.bottom-panel.half .record-bar,
-.bottom-panel.half .tool-hint,
-.bottom-panel.half .panel-section > :not(.tool-group):not(.panel-tabs) {
+.bottom-panel.half #tools-section .record-bar,
+.bottom-panel.half #tools-section .tool-group:not(:first-of-type),
+.bottom-panel.half #tools-section .tool-hint {
     display: none !important;
+}
+
+/* Подсказка: панель можно раскрыть/свернуть */
+@keyframes sheet-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+.bottom-panel.half.hint-bob {
+    animation: sheet-bob 1.6s ease-in-out infinite;
 }
 
 /* Скрытая (свернутая) тень становится легче */
@@ -590,6 +598,11 @@ html, body {
 #players-layer circle[data-type="ball"] { transition: cx 0.15s ease-out, cy 0.15s ease-out; }
 #players-layer text { transition: x 0.15s ease-out, y 0.15s ease-out; }
 #players-layer g { transition: transform 0.15s ease-out; }
+#players-layer .dragging,
+#players-layer .dragging circle,
+#players-layer .dragging text {
+    transition: none !important;
+}
 .drawing-element { transition: opacity 0.15s ease-out; }
 
 /* ============================================
