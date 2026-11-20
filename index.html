@@ -35,6 +35,10 @@
             </div>
             <div class="header-center">
                 <button class="tool-btn court-toggle" id="toggle-court" title="Переключить половину"><div class="tool-icon">1/2</div></button>
+                <div class="active-tool-chip" id="active-tool-chip" hidden aria-live="polite">
+                    <span class="active-tool-chip-icon" id="active-tool-chip-icon"></span>
+                    <span class="active-tool-chip-label" id="active-tool-chip-label"></span>
+                </div>
             </div>
             <div class="header-right">
                 <span class="player-badge" id="player-count"><span class="badge-icon">👤</span><span class="badge-count">0</span></span>
@@ -171,7 +175,6 @@
     <!-- Loading Screen -->
     <div class="loading-screen" id="loading-screen">
         <div class="loading-content">
-            <img src="bropro.gif" alt="Loading..." class="loading-gif">
             <div class="loading-text">Basketball Playbook Pro</div>
             <div class="loading-spinner"></div>
         </div>

@@ -316,7 +316,8 @@ body.playback-mode .court-container {
     padding-bottom: 72px;
 }
 /* Подсказка инструмента не должна висеть над розыгрышем */
-body.playback-mode .floating-hint {
+body.playback-mode .floating-hint,
+body.playback-mode .active-tool-chip {
     display: none !important;
 }
 
@@ -582,21 +583,27 @@ body.playback-mode .floating-hint {
 /* ============================================
    FLOATING HINT — подсказка над панелью
    ============================================ */
+/* Плавающая подсказка под шапкой — её не перекрывают нижняя панель
+   и адресная строка Safari на iPhone. */
 .floating-hint {
     position: fixed;
     left: 50%;
-    bottom: calc(210px + 10px); /* над свернутой панелью */
-    transform: translateX(-50%) translateY(10px);
+    top: calc(var(--header-height) + var(--safe-top) + 8px);
+    bottom: auto;
+    transform: translateX(-50%) translateY(-10px);
     background: var(--bg-elevated);
     color: var(--text-primary);
     padding: 8px 16px;
     border-radius: var(--radius-full);
     font-size: 13px;
     font-weight: 500;
-    z-index: 55;
+    z-index: 90;
     opacity: 0;
     pointer-events: none;
     white-space: nowrap;
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
+    text-overflow: ellipsis;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-primary);
@@ -606,6 +613,42 @@ body.playback-mode .floating-hint {
 .floating-hint.visible {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* Индикатор выбранного инструмента в шапке */
+.active-tool-chip {
+    display: flex; align-items: center; gap: 5px;
+    height: 28px; padding: 0 9px 0 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-full);
+    font-size: 11px; font-weight: 600; color: var(--text-primary);
+    max-width: 132px; min-width: 0; flex-shrink: 1;
+    animation: chip-in 0.2s ease-out;
+}
+.active-tool-chip[hidden] { display: none; }
+.active-tool-chip-icon {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-card); flex-shrink: 0;
+    font-size: 10px; font-weight: 700; color: #fff; line-height: 1;
+    overflow: hidden;
+}
+.active-tool-chip-icon .svg-icon svg { width: 12px; height: 12px; }
+.active-tool-chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.active-tool-chip.no-label { padding-right: 4px; }
+@keyframes chip-in {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+}
+/* На узких экранах оставляем только иконку, чтобы шапка не переполнялась */
+@media (max-width: 400px) {
+    .active-tool-chip {
+        padding: 0; width: 28px; justify-content: center;
+        background: transparent; border-color: transparent;
+    }
+    .active-tool-chip-label { display: none; }
+    .floating-hint { font-size: 12px; padding: 7px 12px; }
 }
 
 .toast {
@@ -706,14 +749,6 @@ body.playback-mode .floating-hint {
     animation: loadingPulse 2s ease-in-out infinite;
 }
 
-.loading-gif {
-    width: 200px;
-    height: 200px;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 122, 255, 0.3);
-    object-fit: cover;
-}
-
 .loading-text {
     font-family: 'Oswald', sans-serif;
     font-size: 24px;
@@ -743,10 +778,6 @@ body.playback-mode .floating-hint {
 }
 
 @media (max-width: 768px) {
-    .loading-gif {
-        width: 150px;
-        height: 150px;
-    }
     .loading-text {
         font-size: 18px;
     }

@@ -269,21 +269,66 @@ document.addEventListener('DOMContentLoaded', function() {
     const toolButtons = document.querySelectorAll('#tools-section .tool-btn');
     const hintText = document.getElementById('hint-text');
 
-    // Плавающая подсказка над панелью
+    // Плавающая подсказка под шапкой (не перекрывается нижней панелью)
     const floatingHint = document.createElement('div');
     floatingHint.id = 'floating-hint';
     floatingHint.className = 'floating-hint';
     document.body.appendChild(floatingHint);
 
+    // Индикатор активного инструмента в шапке
+    const activeToolChip = document.getElementById('active-tool-chip');
+    const activeToolChipIcon = document.getElementById('active-tool-chip-icon');
+    const activeToolChipLabel = document.getElementById('active-tool-chip-label');
+
+    const TOOL_CHIP_COLORS = {
+        pg: '#3366ff', sg: '#33ccff', sf: '#00cc99', pf: '#99cc00',
+        c: '#ffcc00', defense: '#ef4444', ball: '#8B4513',
+        arrow: '#ff6b00', line: '#ef4444', dashed: '#22c55e', wavy: '#af52de',
+        screen: '#ff9500', shot: '#ff3b30', rebound: '#ff3b30', eraser: '#f59e0b'
+    };
+
+    function showActiveToolChip(btn) {
+        if (!activeToolChip || !btn) return;
+        const iconEl = btn.querySelector('.tool-icon');
+        const labelEl = btn.querySelector('.tool-label');
+        const colorKey = Array.from(btn.classList).find(c => TOOL_CHIP_COLORS[c]);
+        const label = labelEl ? labelEl.textContent.trim() : '';
+        const iconText = iconEl ? iconEl.textContent.trim() : '';
+        if (activeToolChipIcon) {
+            activeToolChipIcon.innerHTML = iconEl ? iconEl.innerHTML : '';
+            activeToolChipIcon.style.background = colorKey ? TOOL_CHIP_COLORS[colorKey] : 'var(--bg-card)';
+            activeToolChipIcon.style.color = colorKey === 'c' ? '#333' : '#fff';
+        }
+        // Для позиций (PG/SG/...) иконка и подпись совпадают — подпись не нужна
+        const showLabel = label && label !== iconText;
+        if (activeToolChipLabel) activeToolChipLabel.textContent = showLabel ? label : '';
+        activeToolChip.classList.toggle('no-label', !showLabel);
+        activeToolChip.title = label || iconText;
+        activeToolChip.hidden = false;
+    }
+
+    function hideActiveToolChip() {
+        if (activeToolChip) activeToolChip.hidden = true;
+    }
+
+    let hintTimer = null;
+    let toastActive = false;
+    const HINT_VISIBLE_MS = 5000;
+
+    function showFloatingHint() {
+        if (!currentTool || currentTool === 'select' || toastActive) {
+            floatingHint.classList.remove('visible');
+            return;
+        }
+        floatingHint.classList.add('visible');
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(() => floatingHint.classList.remove('visible'), HINT_VISIBLE_MS);
+    }
+
     function setHint(toolName, hint) {
         if (hintText) hintText.textContent = (toolName ? toolName + ' — ' : '') + (hint || '');
-        const text = (toolName ? toolName + ' — ' : '') + (hint || '');
-        floatingHint.textContent = text;
-        if (currentTool && currentTool !== 'select') {
-            floatingHint.classList.add('visible');
-        } else {
-            floatingHint.classList.remove('visible');
-        }
+        floatingHint.textContent = (toolName ? toolName + ' — ' : '') + (hint || '');
+        showFloatingHint();
     }
 
     toolButtons.forEach(btn => btn.classList.remove('active'));
@@ -314,6 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
         courtSvg.classList.remove('eraser-cursor');
         toolButtons.forEach(t => t.classList.remove('active'));
         floatingHint.classList.remove('visible');
+        hideActiveToolChip();
         setHint('', 'Выберите позицию или инструмент');
     }
 
@@ -359,6 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const names = { 'PG': 'PG', 'SG': 'SG', 'SF': 'SF', 'PF': 'PF', 'C': 'C', 'defense': '⚪ Защитник', 'ball': '🏀 Мяч' };
             const posDesc = POSITION_HINTS[type] || 'Нажмите на площадку';
             setHint(names[type] || type, posDesc);
+            showActiveToolChip(btn);
             updateSheet('half');
         } else if (tool === 'drawing') {
             currentTool = 'drawing'; currentToolType = type;
@@ -371,10 +418,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const names = { 'arrow': '➡️ Движение', 'line': '📏 Линия', 'dashed': '••• Передача', 'wavy': '〰️ Ведение', 'screen': '⊥ Заслон', 'shot': '🎯 Бросок', 'rebound': '⬆️ Подбор' };
                 setHint(names[type] || type, 'Проведите по площадке');
             }
-            updateSheet('half');
+            // Не сворачиваем панель в half: там кнопки Drawing и подсказка скрыты,
+            // и пользователь не видит, какой инструмент выбран. Панель свернётся
+            // автоматически при начале рисования (autoCollapsePanel).
+            showActiveToolChip(btn);
+            updateSheet('expanded');
         } else {
             currentTool = null;
             currentToolType = null;
+            hideActiveToolChip();
             setHint('', 'Выберите инструмент');
             updateSheet('half');
         }
@@ -1066,9 +1118,17 @@ document.addEventListener('DOMContentLoaded', function() {
         let toast = document.getElementById('toast');
         if (!toast) { toast = document.createElement('div'); toast.id = 'toast'; toast.className = 'toast'; document.body.appendChild(toast); }
         toast.textContent = msg;
+        // Тост и подсказка живут в одном месте — на время тоста прячем подсказку
+        toastActive = true;
+        clearTimeout(hintTimer);
+        floatingHint.classList.remove('visible');
         toast.classList.add('show');
         clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
+        toast._timer = setTimeout(() => {
+            toast.classList.remove('show');
+            toastActive = false;
+            showFloatingHint();
+        }, 2000);
     }
 
     // ============================================
