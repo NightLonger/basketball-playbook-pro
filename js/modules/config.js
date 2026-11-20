@@ -6,7 +6,7 @@ export const playerConfig = {
     'PF': { color: '#99cc00', number: null, label: 'PF' },
     'C': { color: '#ffcc00', number: null, label: 'C' },
     'defense': { color: '#ff3333', number: null, label: '⚪' },
-    'ball': { color: '#8B4513', number: null, label: '🏀' },
+    'ball': { color: '#ff9f0a', number: null, label: '🏀' },
     'select': { color: null, number: null, label: '✏️' }
 };
 

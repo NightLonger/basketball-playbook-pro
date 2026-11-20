@@ -118,9 +118,45 @@ export class TimelinePlayer {
     }
 
     _applyTime(t) {
+        // Позиции всех акторов на текущий момент
+        const positions = new Map();
+        for (const actor of this.actors) {
+            positions.set(actor, this._sampleTrack(actor.track, t));
+        }
+
+        // Мяч в руках игрока не должен закрывать подпись позиции:
+        // смещаем его к краю кружка и плавно возвращаем на трек при передаче.
+        const ballActor = this.actors.find(a => a.type === 'ball');
+        let ballPos = ballActor ? positions.get(ballActor) : null;
+        if (ballActor && ballPos) {
+            let closest = null;
+            let minDist = Infinity;
+            for (const actor of this.actors) {
+                if (actor === ballActor) continue;
+                const p = positions.get(actor);
+                const d = Math.hypot(ballPos.x - p.x, ballPos.y - p.y);
+                if (d < minDist) { minDist = d; closest = p; }
+            }
+            // Радиус игрока ~6: если мяч рядом, отодвигаем его наружу.
+            if (closest && minDist < 3) {
+                const blend = 1 - minDist / 3;
+                const offset = 9 * blend;
+                let ux = Math.SQRT1_2;
+                let uy = -Math.SQRT1_2;
+                if (minDist > 1.2) {
+                    ux = (ballPos.x - closest.x) / minDist;
+                    uy = (ballPos.y - closest.y) / minDist;
+                }
+                ballPos = {
+                    x: Math.max(0, Math.min(150, ballPos.x + ux * offset)),
+                    y: Math.max(0, Math.min(280, ballPos.y + uy * offset))
+                };
+            }
+        }
+
         // Акторы
         for (const actor of this.actors) {
-            const pos = this._sampleTrack(actor.track, t);
+            const pos = (actor === ballActor && ballPos) ? ballPos : positions.get(actor);
             this._setActorPosition(actor, pos.x, pos.y);
         }
         // Рисования/события
@@ -177,7 +213,10 @@ export class TimelinePlayer {
         const s = ev.spec;
         const t0 = s.t0 ?? 0;
         const t1 = s.t1 ?? (t0 + 400);
-        if (t < t0) {
+        // Линии/стрелки остаются на площадке как схема, а текстовые метки —
+        // временные подсказки: после t1 их нужно убрать.
+        const hideLabel = s.type === 'label' && t > t1;
+        if (t < t0 || hideLabel) {
             if (ev.shown && ev.element) {
                 ev.element.style.display = 'none';
                 if (ev.markerElement) ev.markerElement.style.display = 'none';

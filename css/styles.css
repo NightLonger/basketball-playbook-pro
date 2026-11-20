@@ -176,8 +176,13 @@ html, body {
     overflow: hidden;
 }
 .bottom-panel.half #tools-section .record-bar,
-.bottom-panel.half #tools-section .tool-group:not(:first-of-type),
+.bottom-panel.half #tools-section .history-group,
 .bottom-panel.half #tools-section .tool-hint {
+    display: none !important;
+}
+/* В компактном режиме показываем все позиции игроков и заголовок Drawing,
+   но сами инструменты рисования скрываем до раскрытия панели. */
+.bottom-panel.half #tools-section .drawing-group .tool-group-buttons {
     display: none !important;
 }
 
@@ -283,10 +288,37 @@ html, body {
 .play-btn.disabled { opacity: 0.4; pointer-events: none; }
 .stop-playback { background: var(--danger); width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
 .stop-playback .rec-icon { font-size: 12px; }
-.rec-playback { flex: 1; display: flex; align-items: center; gap: 6px; }
 .playback-progress { flex: 1; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden; }
 .playback-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--success), var(--primary)); border-radius: 2px; transition: width 0.1s linear; }
 .rec-status { font-size: 10px; color: var(--text-tertiary); font-weight: 500; min-width: 40px; text-align: right; }
+
+/* Плавающий пульт воспроизведения — поверх скрытой панели */
+.playback-hud {
+    position: fixed; left: 12px; right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 70; display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius-md);
+    background: rgba(30, 30, 42, 0.94);
+    border: 1px solid var(--border-primary);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.playback-hud .playback-progress { flex: 1; height: 6px; }
+.playback-hud .rec-status { font-size: 11px; min-width: 44px; color: var(--text-secondary); }
+
+/* Режим розыгрыша: панель убирается, площадка освобождает место под пульт */
+body.playback-mode .bottom-panel {
+    transform: translateY(100%) !important;
+    pointer-events: none;
+}
+body.playback-mode .court-container {
+    padding-bottom: 72px;
+}
+/* Подсказка инструмента не должна висеть над розыгрышем */
+body.playback-mode .floating-hint {
+    display: none !important;
+}
 
 /* ============================================
    TOOL GROUPS — компактные, 4 колонки, крупные emoji
@@ -367,6 +399,20 @@ html, body {
 .tool-group-buttons .tool-btn .tool-label { display: none; }
 .tool-group-buttons .tool-btn.active {
     background: var(--bg-card);
+}
+/* Позиция уже размещена на площадке — повторно выбрать нельзя */
+.tool-group-buttons .tool-btn.used,
+.tool-group-buttons .tool-btn:disabled {
+    opacity: 0.35;
+    filter: grayscale(0.75);
+    cursor: not-allowed;
+}
+.tool-group-buttons .tool-btn.used:active,
+.tool-group-buttons .tool-btn:disabled:active {
+    transform: none;
+    animation: none;
+    border-color: var(--border-subtle);
+    box-shadow: none;
 }
 
 /* Премиальная подсветка — каждая кнопка светится своим цветом */
@@ -579,7 +625,9 @@ html, body {
    SVG LAYERS
    ============================================ */
 #players-layer circle.player { stroke-width: 0.8; cursor: pointer; transition: filter 0.2s; }
-#drawing-layer path, #drawing-layer line { stroke-width: 0.8; fill: none; }
+/* Только элементы самого слоя. Нельзя красить все path внутри layer:
+   это затрагивает path внутри <marker> (наконечник стрелки) и делает его прозрачным. */
+#drawing-layer > path, #drawing-layer > line { stroke-width: 0.8; fill: none; }
 #players-layer .player { cursor: pointer; transition: filter var(--transition-fast); }
 #players-layer .player:hover { filter: brightness(1.15); }
 #players-layer .player.selected { filter: brightness(1.4) drop-shadow(0 0 3px rgba(255,255,255,0.6)); }

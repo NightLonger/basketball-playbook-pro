@@ -84,6 +84,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentTool = null;
     let currentToolType = null;
+    // Позиции, которые могут быть на площадке только в одном экземпляре.
+    // defense намеренно не входит: защитников обычно нужно несколько.
+    const UNIQUE_PLAYER_TYPES = new Set(['PG', 'SG', 'SF', 'PF', 'C', 'ball']);
     let recordedSnapshots = [];
     let lastLoadedComboName = '';
     let activeTimeline = null;
@@ -284,6 +287,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     toolButtons.forEach(btn => btn.classList.remove('active'));
+
+    function playerTypeExists(type) {
+        return playerManager.getPlayers().some(p => p.type === type);
+    }
+
+    // Блокируем кнопки позиций, которые уже есть на площадке.
+    function syncPlayerButtons() {
+        toolButtons.forEach(btn => {
+            const tool = btn.dataset.tool;
+            if (tool !== 'player' && tool !== 'ball') return;
+            const type = btn.dataset.type;
+            const used = UNIQUE_PLAYER_TYPES.has(type) && playerTypeExists(type);
+            btn.classList.toggle('used', used);
+            btn.disabled = used;
+            if (used) btn.classList.remove('active');
+        });
+    }
+
+    // После размещения игрока выключаем инструмент: одна позиция — одно размещение.
+    function deactivateTool() {
+        currentTool = null;
+        currentToolType = null;
+        playerManager.setTool(null, null);
+        drawingManager.setTool(null, null);
+        courtSvg.classList.remove('eraser-cursor');
+        toolButtons.forEach(t => t.classList.remove('active'));
+        floatingHint.classList.remove('visible');
+        setHint('', 'Выберите позицию или инструмент');
+    }
+
     const defaultTool = document.querySelector('#tools-section .tool-btn.pg');
     if (defaultTool) { defaultTool.classList.add('active'); setToolFromButton(defaultTool); }
 
@@ -314,6 +347,13 @@ document.addEventListener('DOMContentLoaded', function() {
         courtSvg.classList.remove('eraser-cursor');
 
         if (tool === 'player' || tool === 'ball') {
+            if (UNIQUE_PLAYER_TYPES.has(type) && playerTypeExists(type)) {
+                showToast(type === 'ball' ? 'Мяч уже на площадке' : type + ' уже на площадке');
+                deactivateTool();
+                syncPlayerButtons();
+                updateSheet('half');
+                return;
+            }
             currentTool = tool; currentToolType = type;
             playerManager.setTool(tool, type);
             const names = { 'PG': 'PG', 'SG': 'SG', 'SF': 'SF', 'PF': 'PF', 'C': 'C', 'defense': '⚪ Защитник', 'ball': '🏀 Мяч' };
@@ -358,12 +398,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clientX === undefined) return;
         const point = courtManager.getSVGPoint(clientX, clientY);
         if (currentTool === 'player' || currentTool === 'ball') {
+            if (UNIQUE_PLAYER_TYPES.has(currentToolType) && playerTypeExists(currentToolType)) {
+                showToast((currentToolType === 'ball' ? 'Мяч' : currentToolType) + ' уже на площадке');
+                deactivateTool();
+                updateSheet('half');
+                return;
+            }
+
+            const placedType = currentToolType;
             playerManager.addPlayer(point.x, point.y);
             updatePlayerCount();
 
-            // Оставляем выбранный инструмент активным, чтобы можно было быстро разместить нескольких игроков
-            floatingHint.classList.remove('visible');
+            // Одна позиция — одно размещение: инструмент сразу выключается,
+            // а компактная панель показывает все позиции игроков.
+            deactivateTool();
             updateSheet('half');
+            showToast((placedType === 'ball' ? '🏀 Мяч добавлен' : placedType + ' добавлен') + ' — выберите следующую позицию');
             return;
         }
         // Авто-сворачивание при начале рисования
@@ -398,12 +448,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePlayerCount() {
         const el = document.querySelector('#player-count .badge-count');
         if (el) el.textContent = playerManager.getPlayers().length;
+        syncPlayerButtons();
+    }
+
+    function syncCourtToggle() {
+        const icon = document.querySelector('#toggle-court .tool-icon');
+        if (icon) icon.textContent = courtManager.isHalfCourt ? 'Full' : '1/2';
     }
 
     document.getElementById('toggle-court')?.addEventListener('click', function() {
-        const wasFull = courtManager.toggleCourt();
-        const icon = this.querySelector('.tool-icon');
-        if (icon) icon.textContent = wasFull ? '1/2' : 'Full';
+        courtManager.toggleCourt();
+        syncCourtToggle();
     });
 
     document.getElementById('reset-zoom')?.addEventListener('click', () => {
@@ -495,10 +550,38 @@ document.addEventListener('DOMContentLoaded', function() {
     const recordBtn = document.getElementById('record-start');
     const playBtn = document.getElementById('play-btn');
     const stopPlaybackBtn = document.getElementById('stop-playback');
-    const recPlayback = document.getElementById('rec-playback');
+    const playbackHud = document.getElementById('playback-hud');
     const playbackFill = document.getElementById('playback-fill');
     const recStatus = document.getElementById('rec-status');
     const recordIndicator = document.getElementById('record-indicator');
+
+    // Во время розыгрыша панель полностью скрывается, чтобы была видна вся площадка,
+    // а прогресс и «Стоп» показываются в плавающем пульте.
+    let courtViewBeforePlayback = null;
+
+    function applyTimelineCourtView(timeline) {
+        if (timeline && timeline.view === 'half') courtManager.setHalfCourt();
+        else courtManager.setFullCourt();
+        syncCourtToggle();
+    }
+
+    function enterPlaybackMode() {
+        if (courtViewBeforePlayback === null) courtViewBeforePlayback = courtManager.isHalfCourt;
+        applyTimelineCourtView(activeTimeline);
+        document.body.classList.add('playback-mode');
+        playbackHud.style.display = 'flex';
+    }
+
+    function exitPlaybackMode() {
+        document.body.classList.remove('playback-mode');
+        playbackHud.style.display = 'none';
+        if (courtViewBeforePlayback !== null) {
+            if (courtViewBeforePlayback) courtManager.setHalfCourt();
+            else courtManager.setFullCourt();
+            courtViewBeforePlayback = null;
+            syncCourtToggle();
+        }
+    }
 
     recordBtn.addEventListener('click', function() {
         if (recorderManager.getStatus() === 'recording') stopRecording();
@@ -599,7 +682,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function finishPlaybackUI(message = '✅ Воспроизведение завершено') {
-        recPlayback.style.display = 'none';
+        exitPlaybackMode();
+        stopPlaybackBtn.style.display = 'none';
         playBtn.style.display = 'flex';
         playbackFill.style.width = '0%';
         recStatus.textContent = '00:00';
@@ -611,7 +695,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Таймлайн-комбинация (плавный сценарный розыгрыш)
         if (activeTimeline) {
-            recPlayback.style.display = 'flex';
+            enterPlaybackMode();
+            stopPlaybackBtn.style.display = 'flex';
             playBtn.style.display = 'none';
             playbackFill.style.width = '0%';
             timelinePlayer.load(activeTimeline, { layers, playerManager, drawingManager });
@@ -635,7 +720,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Покадровое воспроизведение (запись/старые снапшоты)
         if (recordedSnapshots.length < 2) { showToast('Нет данных для воспроизведения'); return; }
 
-        recPlayback.style.display = 'flex';
+        enterPlaybackMode();
+        stopPlaybackBtn.style.display = 'flex';
         playBtn.style.display = 'none';
         playbackFill.style.width = '0%';
 
@@ -650,7 +736,8 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         recorderManager.onPlaybackEnd = () => {
-            recPlayback.style.display = 'none';
+            exitPlaybackMode();
+            stopPlaybackBtn.style.display = 'none';
             playBtn.style.display = 'flex';
             playbackFill.style.width = '0%';
             recorderManager.onFrame = null;
@@ -668,7 +755,8 @@ document.addEventListener('DOMContentLoaded', function() {
             timelinePlayer.onEnd = null;
         }
         recorderManager.stopPlayback();
-        recPlayback.style.display = 'none';
+        exitPlaybackMode();
+        stopPlaybackBtn.style.display = 'none';
         playBtn.style.display = 'flex';
         playbackFill.style.width = '0%';
         recStatus.textContent = '00:00';
@@ -686,6 +774,7 @@ document.addEventListener('DOMContentLoaded', function() {
         playerManager.getPlayers().length = 0;
         drawingManager.getDrawings().length = 0;
         drawingManager.drawingCounter = 0;
+        syncPlayerButtons();
     }
 
     // ============================================
@@ -797,6 +886,7 @@ document.addEventListener('DOMContentLoaded', function() {
             timelinePlayer.onProgress = null;
             timelinePlayer.onEnd = null;
             recorderManager.stopPlayback();
+            exitPlaybackMode();
             activeTimeline = null;
             recordedSnapshots = [];
             clearCourtLayers();
@@ -807,9 +897,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeTimeline = combo.timeline;
                 timelinePlayer.load(activeTimeline, { layers, playerManager, drawingManager });
                 timelinePlayer.seek(0);
+                applyTimelineCourtView(activeTimeline);
                 playBtn.classList.remove('disabled');
                 updatePlayerCount();
                 recStatus.textContent = '00:00';
+                // Кнопка Play живёт во вкладке Tools — показываем её сразу после загрузки.
+                document.querySelector('.panel-tab[data-section="tools"]').click();
                 showToast('✅ "' + combo.name + '" — нажмите ▶️ для розыгрыша');
                 return;
             }

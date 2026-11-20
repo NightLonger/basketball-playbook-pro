@@ -2,9 +2,28 @@
 /**
  * Модуль библиотеки комбинаций (Playbook)
  */
+import { PLAYBOOK_TIMELINES } from './playbookTimelines.js';
+
 export class PlaybookManager {
     constructor() {
         this.library = this._buildLibrary();
+        // Подключаем сценарные таймлайны к комбинациям по id.
+        Object.values(this.library).forEach(category => {
+            category.forEach(combo => {
+                const timeline = PLAYBOOK_TIMELINES[combo.id];
+                if (timeline) {
+                    // Если в сценарии есть движение ниже середины площадки — нужен full-court,
+                    // иначе достаточно half-court (крупнее и читаемее на телефоне).
+                    if (!timeline.view) {
+                        const ys = [];
+                        (timeline.initialPlayers || []).forEach(p => ys.push(p.y));
+                        (timeline.tracks || []).forEach(track => track.forEach(k => ys.push(k.y)));
+                        timeline.view = ys.some(y => typeof y === 'number' && y > 145) ? 'full' : 'half';
+                    }
+                    combo.timeline = timeline;
+                }
+            });
+        });
         this.currentCategory = 'basic';
         this.onLoadCombo = null; // callback для загрузки комбинации
     }
@@ -27,69 +46,6 @@ export class PlaybookManager {
                         ],
                         drawings: []
                     },
-                    timeline: {
-                        duration: 7000,
-                        initialPlayers: [
-                            { type: 'PG', x: 75, y: 120 },
-                            { type: 'SG', x: 22, y: 75 },
-                            { type: 'SF', x: 128, y: 75 },
-                            { type: 'PF', x: 115, y: 110 },
-                            { type: 'C', x: 75, y: 60 },
-                            { type: 'ball', x: 75, y: 120 }
-                        ],
-                        tracks: {
-                            0: [ // PG: ведение -> использование заслона -> проход -> пас
-                                { t: 0,    x: 75, y: 120 },
-                                { t: 1200, x: 75, y: 112 },
-                                { t: 2200, x: 58, y: 95 },
-                                { t: 3200, x: 52, y: 70 },
-                                { t: 4200, x: 58, y: 52 },
-                                { t: 5200, x: 60, y: 50 },
-                                { t: 7000, x: 62, y: 55 }
-                            ],
-                            1: [ // SG спейсинг
-                                { t: 0,    x: 22, y: 75 },
-                                { t: 3000, x: 20, y: 65 },
-                                { t: 7000, x: 18, y: 60 }
-                            ],
-                            2: [ // SF спейсинг
-                                { t: 0,    x: 128, y: 75 },
-                                { t: 3000, x: 130, y: 68 },
-                                { t: 7000, x: 132, y: 62 }
-                            ],
-                            3: [ // PF спейсинг
-                                { t: 0,    x: 115, y: 110 },
-                                { t: 3000, x: 118, y: 100 },
-                                { t: 7000, x: 120, y: 95 }
-                            ],
-                            4: [ // C: выходит ставить заслон -> скатывается к кольцу -> завершение
-                                { t: 0,    x: 75, y: 60 },
-                                { t: 1200, x: 88, y: 105 },
-                                { t: 2200, x: 88, y: 105 },
-                                { t: 3200, x: 84, y: 80 },
-                                { t: 4200, x: 78, y: 50 },
-                                { t: 5200, x: 75, y: 32 },
-                                { t: 7000, x: 75, y: 18 }
-                            ],
-                            5: [ // Мяч: с PG -> передача -> с C
-                                { t: 0,    x: 75, y: 120 },
-                                { t: 1200, x: 75, y: 112 },
-                                { t: 2200, x: 58, y: 95 },
-                                { t: 3200, x: 52, y: 70 },
-                                { t: 4200, x: 58, y: 52 },
-                                { t: 4600, x: 75, y: 32 },
-                                { t: 5200, x: 75, y: 32 },
-                                { t: 7000, x: 75, y: 18 }
-                            ]
-                        },
-                        drawings: [
-                            { type: 'screen', x1: 83, y1: 112, x2: 93, y2: 98, t0: 900, t1: 1500, color: '#ff9500', strokeWidth: 1.8 },
-                            { type: 'arrow',  x1: 75, y1: 110, x2: 52, y2: 72, t0: 1600, t1: 2600, color: '#007aff' },
-                            { type: 'dashed', x1: 88, y1: 100, x2: 75, y2: 34, t0: 2400, t1: 3600, color: '#34c759' },
-                            { type: 'pass',   x1: 58, y1: 52,  x2: 75, y2: 32, t0: 4200, t1: 4600, color: '#ffcc00' },
-                            { type: 'shot',   x: 75, y: 16, t0: 5600, t1: 5900, color: '#ff3b30', size: 2.4 }
-                        ]
-                    }
                 },
                 {
                     id: 'zone-defense-2-3',
@@ -138,6 +94,38 @@ export class PlaybookManager {
                             { type: 'C', x: 30, y: 100 }
                         ]
                     }
+                },
+                {
+                    id: 'horns-set',
+                    name: 'Рога (Horns)',
+                    description: 'Два больших на локтях: заслон, скидка и завершение',
+                    type: 'offense',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 110 },
+                            { type: 'SG', x: 18, y: 35 },
+                            { type: 'SF', x: 132, y: 35 },
+                            { type: 'PF', x: 50, y: 60 },
+                            { type: 'C', x: 100, y: 60 }
+                        ],
+                        drawings: []
+                    }
+                },
+                {
+                    id: 'dho-wing',
+                    name: 'Передача из рук (DHO)',
+                    description: 'Передача из рук на крыле и проход к кольцу',
+                    type: 'offense',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 110 },
+                            { type: 'SG', x: 130, y: 35 },
+                            { type: 'SF', x: 25, y: 70 },
+                            { type: 'PF', x: 100, y: 55 },
+                            { type: 'C', x: 50, y: 55 }
+                        ],
+                        drawings: []
+                    }
                 }
             ],
             offense: [
@@ -185,6 +173,70 @@ export class PlaybookManager {
                             { type: 'C', x: 80, y: 150 }
                         ]
                     }
+                },
+                {
+                    id: 'ucla-cut',
+                    name: 'UCLA cut',
+                    description: 'Передача на крыло и резка под заслон центрового',
+                    type: 'offense',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 110 },
+                            { type: 'SG', x: 130, y: 70 },
+                            { type: 'SF', x: 20, y: 70 },
+                            { type: 'PF', x: 45, y: 60 },
+                            { type: 'C', x: 105, y: 60 }
+                        ],
+                        drawings: []
+                    }
+                },
+                {
+                    id: 'hammer',
+                    name: 'Хаммер (Hammer)',
+                    description: 'Проход по лицевой и скидка в дальний угол',
+                    type: 'offense',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 110 },
+                            { type: 'SG', x: 20, y: 25 },
+                            { type: 'SF', x: 130, y: 40 },
+                            { type: 'PF', x: 60, y: 60 },
+                            { type: 'C', x: 100, y: 65 }
+                        ],
+                        drawings: []
+                    }
+                },
+                {
+                    id: 'spain-pick-roll',
+                    name: 'Spain P&R',
+                    description: 'Заслон и back screen на защитнике центрового',
+                    type: 'offense',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 115 },
+                            { type: 'SG', x: 20, y: 30 },
+                            { type: 'SF', x: 130, y: 35 },
+                            { type: 'PF', x: 45, y: 60 },
+                            { type: 'C', x: 95, y: 65 }
+                        ],
+                        drawings: []
+                    }
+                },
+                {
+                    id: 'floppy',
+                    name: 'Floppy',
+                    description: 'Шутер выбирает заслон и выходит на дугу',
+                    type: 'offense',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 115 },
+                            { type: 'SG', x: 75, y: 30 },
+                            { type: 'SF', x: 20, y: 70 },
+                            { type: 'PF', x: 45, y: 45 },
+                            { type: 'C', x: 105, y: 45 }
+                        ],
+                        drawings: []
+                    }
                 }
             ],
             defense: [
@@ -231,6 +283,51 @@ export class PlaybookManager {
                             { type: 'defense', x: 110, y: 60 },
                             { type: 'defense', x: 60, y: 100 },
                             { type: 'defense', x: 90, y: 100 }
+                        ]
+                    }
+                },
+                {
+                    id: 'zone-1-3-1',
+                    name: 'Зонная 1-3-1',
+                    description: 'Зона с ловушками на крыльях',
+                    type: 'defense',
+                    data: {
+                        players: [
+                            { type: 'defense', x: 75, y: 95 },
+                            { type: 'defense', x: 25, y: 65 },
+                            { type: 'defense', x: 75, y: 55 },
+                            { type: 'defense', x: 125, y: 65 },
+                            { type: 'defense', x: 75, y: 20 }
+                        ]
+                    }
+                },
+                {
+                    id: 'box-and-one',
+                    name: 'Бокс и один',
+                    description: 'Зона 2-2 плюс персональная опека лидера',
+                    type: 'defense',
+                    data: {
+                        players: [
+                            { type: 'defense', x: 60, y: 55 },
+                            { type: 'defense', x: 90, y: 55 },
+                            { type: 'defense', x: 60, y: 30 },
+                            { type: 'defense', x: 90, y: 30 },
+                            { type: 'defense', x: 132, y: 85 }
+                        ]
+                    }
+                },
+                {
+                    id: 'press-1-2-2',
+                    name: 'Прессинг 1-2-2',
+                    description: 'Прессинг с ловушкой на бровке и перехватом',
+                    type: 'defense',
+                    data: {
+                        players: [
+                            { type: 'defense', x: 75, y: 180 },
+                            { type: 'defense', x: 45, y: 205 },
+                            { type: 'defense', x: 105, y: 205 },
+                            { type: 'defense', x: 55, y: 240 },
+                            { type: 'defense', x: 95, y: 240 }
                         ]
                     }
                 }
@@ -282,6 +379,54 @@ export class PlaybookManager {
                             { type: 'PF', x: 70, y: 70 },
                             { type: 'C', x: 50, y: 130 }
                         ]
+                    }
+                },
+                {
+                    id: 'blob-stack',
+                    name: 'Аут из-под кольца (стопка)',
+                    description: 'Вбрасывание из-под кольца из стопки',
+                    type: 'special',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 2 },
+                            { type: 'SG', x: 82, y: 52 },
+                            { type: 'SF', x: 78, y: 42 },
+                            { type: 'PF', x: 74, y: 32 },
+                            { type: 'C', x: 70, y: 22 }
+                        ],
+                        drawings: []
+                    }
+                },
+                {
+                    id: 'ato-quick',
+                    name: 'Быстрый розыгрыш после тайм-аута',
+                    description: 'Вход в пост и черный ход под кольцо',
+                    type: 'special',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 75, y: 110 },
+                            { type: 'SG', x: 130, y: 70 },
+                            { type: 'SF', x: 20, y: 70 },
+                            { type: 'PF', x: 45, y: 55 },
+                            { type: 'C', x: 95, y: 60 }
+                        ],
+                        drawings: []
+                    }
+                },
+                {
+                    id: 'slob-box',
+                    name: 'Аут сбоку (бокс)',
+                    description: 'Вбрасывание сбоку из расстановки бокс',
+                    type: 'special',
+                    data: {
+                        players: [
+                            { type: 'PG', x: 10, y: 100 },
+                            { type: 'SG', x: 45, y: 55 },
+                            { type: 'SF', x: 45, y: 85 },
+                            { type: 'PF', x: 75, y: 55 },
+                            { type: 'C', x: 75, y: 85 }
+                        ],
+                        drawings: []
                     }
                 }
             ]

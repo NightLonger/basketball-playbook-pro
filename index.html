@@ -91,13 +91,8 @@
                     <div class="record-bar">
                         <button class="rec-btn record-start" id="record-start"><span class="rec-icon">⏺</span><span class="rec-label">Запись</span></button>
                         <button class="rec-btn play-btn disabled" id="play-btn"><span class="rec-icon">▶️</span><span class="rec-label">Play</span></button>
-                        <div class="rec-playback" id="rec-playback" style="display:none">
-                            <div class="playback-progress"><div class="playback-fill" id="playback-fill"></div></div>
-                            <span class="rec-status" id="rec-status">00:00</span>
-                        </div>
-                        <button class="rec-btn stop-playback" id="stop-playback" style="display:none"><span class="rec-icon">⏹</span></button>
                     </div>
-                    <div class="tool-group">
+                    <div class="tool-group players-group">
                         <div class="tool-group-title"><span class="group-icon">👥</span>Players</div>
                         <div class="tool-group-buttons">
                             <button class="tool-btn pg" data-tool="player" data-type="PG"><div class="tool-icon">PG</div><div class="tool-label">PG</div></button>
@@ -109,7 +104,7 @@
                             <button class="tool-btn ball" data-tool="ball" data-type="ball"><div class="tool-icon" data-icon="ball">🏀</div><div class="tool-label">Ball</div></button>
                         </div>
                     </div>
-                    <div class="tool-group">
+                    <div class="tool-group drawing-group">
                         <div class="tool-group-title"><span class="group-icon">✏️</span>Drawing</div>
                         <div class="tool-group-buttons">
                             <button class="tool-btn arrow" data-tool="drawing" data-type="arrow"><div class="tool-icon" data-icon="arrow">➡️</div><div class="tool-label">Движение</div></button>
@@ -122,7 +117,7 @@
                             <button class="tool-btn eraser" data-tool="drawing" data-type="eraser"><div class="tool-icon" data-icon="eraser">🧹</div><div class="tool-label">Ластик</div></button>
                         </div>
                     </div>
-                    <div class="tool-group">
+                    <div class="tool-group history-group">
                         <div class="tool-group-title"><span class="group-icon">↩️</span>History</div>
                         <div class="tool-group-buttons history-grid">
                             <button class="tool-btn undo" id="undo-btn" data-tool="undo"><div class="tool-icon">↩</div><div class="tool-label">Undo</div></button>
@@ -152,6 +147,13 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Плавающий пульт воспроизведения: не перекрывается панелью -->
+    <div class="playback-hud" id="playback-hud" style="display:none">
+        <div class="playback-progress"><div class="playback-fill" id="playback-fill"></div></div>
+        <span class="rec-status" id="rec-status">00:00</span>
+        <button class="rec-btn stop-playback" id="stop-playback" title="Остановить"><span class="rec-icon">⏹</span></button>
     </div>
 
     <!-- Кастомный confirm диалог -->
