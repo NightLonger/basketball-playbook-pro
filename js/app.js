@@ -8,7 +8,7 @@ import { StorageManager } from './modules/storage.js';
 import { PlaybookManager } from './modules/playbook.js';
 import { RecorderManager } from './modules/recorder.js';
 import { TimelinePlayer } from './modules/timelinePlayer.js';
-import { ICONS, replaceEmojiWithIcon } from './modules/icons.js';
+import { setIcon, iconMarkup } from './modules/icons.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // ============================================
@@ -35,10 +35,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmOk = document.getElementById('confirm-ok');
     const confirmCancel = document.getElementById('confirm-cancel');
 
-    function showConfirm(message, icon = '⚠️', isLoad = false) {
+    function showConfirm(message, icon = 'warning', isLoad = false) {
         return new Promise((resolve) => {
             confirmMsg.textContent = message;
-            confirmIcon.textContent = icon;
+            if (!setIcon(confirmIcon, icon)) confirmIcon.textContent = icon;
+            confirmIcon.dataset.tone = icon === 'trash' ? 'danger'
+                : (icon === 'warning' ? 'warning' : 'primary');
             confirmOverlay.style.display = 'flex';
 
             // Меняем стиль кнопки OK в зависимости от типа действия
@@ -266,6 +268,26 @@ document.addEventListener('DOMContentLoaded', function() {
         'ball': 'Мяч'
     };
 
+    // Подпись + иконка для подсказок и тостов. Иконки берём из iconpack,
+    // эмодзи в интерфейсе больше не используются.
+    const HINT_META = {
+        'PG': { label: 'PG', icon: 'PG' },
+        'SG': { label: 'SG', icon: 'SG' },
+        'SF': { label: 'SF', icon: 'SF' },
+        'PF': { label: 'PF', icon: 'PF' },
+        'C': { label: 'C', icon: 'C' },
+        'defense': { label: 'Защитник', icon: 'DEF' },
+        'ball': { label: 'Мяч', icon: 'ball' },
+        'arrow': { label: 'Движение', icon: 'arrow' },
+        'line': { label: 'Линия', icon: 'line' },
+        'dashed': { label: 'Передача', icon: 'pass' },
+        'wavy': { label: 'Ведение', icon: 'wavy' },
+        'screen': { label: 'Заслон', icon: 'screen' },
+        'shot': { label: 'Бросок', icon: 'shot' },
+        'rebound': { label: 'Подбор', icon: 'rebound' },
+        'eraser': { label: 'Ластик', icon: 'eraser' }
+    };
+
     const toolButtons = document.querySelectorAll('#tools-section .tool-btn');
     const hintText = document.getElementById('hint-text');
 
@@ -287,6 +309,15 @@ document.addEventListener('DOMContentLoaded', function() {
         screen: '#ff9500', shot: '#ff3b30', rebound: '#ff3b30', eraser: '#f59e0b'
     };
 
+    function withAlpha(hex, alpha) {
+        const raw = hex.replace('#', '');
+        const full = raw.length === 3 ? raw.split('').map(c => c + c).join('') : raw;
+        const r = parseInt(full.slice(0, 2), 16);
+        const g = parseInt(full.slice(2, 4), 16);
+        const b = parseInt(full.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
     function showActiveToolChip(btn) {
         if (!activeToolChip || !btn) return;
         const iconEl = btn.querySelector('.tool-icon');
@@ -295,12 +326,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const label = labelEl ? labelEl.textContent.trim() : '';
         const iconText = iconEl ? iconEl.textContent.trim() : '';
         if (activeToolChipIcon) {
+            const accent = colorKey ? TOOL_CHIP_COLORS[colorKey] : null;
             activeToolChipIcon.innerHTML = iconEl ? iconEl.innerHTML : '';
-            activeToolChipIcon.style.background = colorKey ? TOOL_CHIP_COLORS[colorKey] : 'var(--bg-card)';
-            activeToolChipIcon.style.color = colorKey === 'c' ? '#333' : '#fff';
+            activeToolChipIcon.style.background = accent ? withAlpha(accent, 0.18) : 'var(--bg-card)';
+            activeToolChipIcon.style.color = accent || '#fff';
+            activeToolChipIcon.style.borderColor = accent ? withAlpha(accent, 0.55) : 'transparent';
         }
-        // Для позиций (PG/SG/...) иконка и подпись совпадают — подпись не нужна
-        const showLabel = label && label !== iconText;
+        // Для позиций (PG/SG/... и DEF) иконка уже содержит abbreviation — подпись не нужна.
+        const showLabel = label && !['PG', 'SG', 'SF', 'PF', 'C', 'DEF'].includes(label);
         if (activeToolChipLabel) activeToolChipLabel.textContent = showLabel ? label : '';
         activeToolChip.classList.toggle('no-label', !showLabel);
         activeToolChip.title = label || iconText;
@@ -325,9 +358,22 @@ document.addEventListener('DOMContentLoaded', function() {
         hintTimer = setTimeout(() => floatingHint.classList.remove('visible'), HINT_VISIBLE_MS);
     }
 
-    function setHint(toolName, hint) {
-        if (hintText) hintText.textContent = (toolName ? toolName + ' — ' : '') + (hint || '');
-        floatingHint.textContent = (toolName ? toolName + ' — ' : '') + (hint || '');
+    function hintTextValue(name, hint) {
+        const n = (name || '').trim();
+        const h = (hint || '').trim();
+        // «Мяч — Мяч» → «Мяч»: если подпись и описание совпадают, оставляем одно.
+        return !n ? h : (!h || h.toLowerCase() === n.toLowerCase()) ? n : n + ' — ' + h;
+    }
+
+    function hintContent(name, hint, iconName) {
+        const icon = iconName ? iconMarkup(iconName, 'hint-icon') : '';
+        return icon + '<span>' + hintTextValue(name, hint) + '</span>';
+    }
+
+    function setHint(toolName, hint, iconName) {
+        // В компактной панели только текст: иконка там ломает выравнивание по вертикали.
+        if (hintText) hintText.textContent = hintTextValue(toolName, hint);
+        floatingHint.innerHTML = hintContent(toolName, hint, iconName);
         showFloatingHint();
     }
 
@@ -363,6 +409,10 @@ document.addEventListener('DOMContentLoaded', function() {
         setHint('', 'Выберите позицию или инструмент');
     }
 
+    // Заменяем эмодзи на SVG до выбора инструмента по умолчанию,
+    // иначе чип в шапке скопирует текстовую подпись вместо иконки.
+    initIcons();
+
     const defaultTool = document.querySelector('#tools-section .tool-btn.pg');
     if (defaultTool) { defaultTool.classList.add('active'); setToolFromButton(defaultTool); }
 
@@ -392,9 +442,11 @@ document.addEventListener('DOMContentLoaded', function() {
         drawingManager.setTool(null, null);
         courtSvg.classList.remove('eraser-cursor');
 
+        const meta = HINT_META[type] || { label: type, icon: type };
+
         if (tool === 'player' || tool === 'ball') {
             if (UNIQUE_PLAYER_TYPES.has(type) && playerTypeExists(type)) {
-                showToast(type === 'ball' ? 'Мяч уже на площадке' : type + ' уже на площадке');
+                showToast(meta.label + ' уже на площадке', meta.icon);
                 deactivateTool();
                 syncPlayerButtons();
                 updateSheet('half');
@@ -402,9 +454,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             currentTool = tool; currentToolType = type;
             playerManager.setTool(tool, type);
-            const names = { 'PG': 'PG', 'SG': 'SG', 'SF': 'SF', 'PF': 'PF', 'C': 'C', 'defense': '⚪ Защитник', 'ball': '🏀 Мяч' };
             const posDesc = POSITION_HINTS[type] || 'Нажмите на площадку';
-            setHint(names[type] || type, posDesc);
+            setHint(meta.label, posDesc, meta.icon);
             showActiveToolChip(btn);
             updateSheet('half');
         } else if (tool === 'drawing') {
@@ -412,11 +463,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (type === 'eraser') {
                 drawingManager.setTool('drawing', 'eraser');
                 courtSvg.classList.add('eraser-cursor');
-                setHint('🧹 Ластик', 'Кликните на линию');
+                setHint(meta.label, 'Кликните на линию', meta.icon);
             } else {
                 drawingManager.setTool('drawing', type);
-                const names = { 'arrow': '➡️ Движение', 'line': '📏 Линия', 'dashed': '••• Передача', 'wavy': '〰️ Ведение', 'screen': '⊥ Заслон', 'shot': '🎯 Бросок', 'rebound': '⬆️ Подбор' };
-                setHint(names[type] || type, 'Проведите по площадке');
+                setHint(meta.label, 'Проведите по площадке', meta.icon);
             }
             // Не сворачиваем панель в half: там кнопки Drawing и подсказка скрыты,
             // и пользователь не видит, какой инструмент выбран. Панель свернётся
@@ -451,7 +501,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const point = courtManager.getSVGPoint(clientX, clientY);
         if (currentTool === 'player' || currentTool === 'ball') {
             if (UNIQUE_PLAYER_TYPES.has(currentToolType) && playerTypeExists(currentToolType)) {
-                showToast((currentToolType === 'ball' ? 'Мяч' : currentToolType) + ' уже на площадке');
+                const busyMeta = HINT_META[currentToolType] || { label: currentToolType, icon: currentToolType };
+                showToast(busyMeta.label + ' уже на площадке', busyMeta.icon);
                 deactivateTool();
                 updateSheet('half');
                 return;
@@ -465,7 +516,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // а компактная панель показывает все позиции игроков.
             deactivateTool();
             updateSheet('half');
-            showToast((placedType === 'ball' ? '🏀 Мяч добавлен' : placedType + ' добавлен') + ' — выберите следующую позицию');
+            const placedMeta = HINT_META[placedType] || { label: placedType, icon: placedType };
+            showToast(placedMeta.label + ' добавлен — выберите следующую позицию', placedMeta.icon);
             return;
         }
         // Авто-сворачивание при начале рисования
@@ -515,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('reset-zoom')?.addEventListener('click', () => {
         courtManager.resetView();
-        showToast('Масштаб сброшен');
+        showToast('Масштаб сброшен', 'target');
     });
 
     // ============================================
@@ -523,14 +575,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     function undoLastAction() {
         const action = historyManager.undo();
-        if (action) { undoAction(action); showToast('Отмена'); } else showToast('Нет действий');
+        if (action) { undoAction(action); showToast('Отмена', 'undo'); } else showToast('Нет действий', 'warning');
     }
     function redoLastAction() {
         const action = historyManager.redo();
-        if (action) { redoAction(action); showToast('Повтор'); } else showToast('Нет действий');
+        if (action) { redoAction(action); showToast('Повтор', 'redo'); } else showToast('Нет действий', 'warning');
     }
     async function clearAllAction() {
-        const confirmed = await showConfirm('Очистить всё?', '🗑️', false);
+        const confirmed = await showConfirm('Очистить всё?', 'trash', false);
         if (!confirmed) return;
         const savedDrawings = [...drawingManager.getDrawings()];
         if (savedDrawings.length > 0 && drawingManager.onHistoryChange) {
@@ -542,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePlayerCount();
         recorderManager.captureFrame();
         captureSnapshot();
-        showToast('Всё очищено');
+        showToast('Всё очищено', 'trash');
     }
 
     function undoAction(action) {
@@ -655,25 +707,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!ok) return;
         recordBtn.classList.add('recording');
         recordBtn.querySelector('.rec-label').textContent = 'Стоп';
-        recordBtn.querySelector('.rec-icon').textContent = '⏹';
+        setIcon(recordBtn.querySelector('.rec-icon'), 'stop');
         playBtn.classList.add('disabled');
         recordIndicator.style.display = 'flex';
         recStatus.textContent = '00:00';
         // Захватываем начальный пустой кадр
         captureSnapshot();
-        showToast('🔴 Запись');
+        showToast('Запись', 'record');
     }
 
     function stopRecording() {
         recorderManager.stopRecording();
         recordBtn.classList.remove('recording');
         recordBtn.querySelector('.rec-label').textContent = 'Запись';
-        recordBtn.querySelector('.rec-icon').textContent = '⏺';
+        setIcon(recordBtn.querySelector('.rec-icon'), 'record');
         playBtn.classList.remove('disabled');
         recordIndicator.style.display = 'none';
         const d = ((Date.now() - recorderManager.recordingStartTime) / 1000).toFixed(1);
         recStatus.textContent = d + 's';
-        showToast('⏹ Запись: ' + recordedSnapshots.length + ' шагов');
+        showToast('Запись: ' + recordedSnapshots.length + ' шагов', 'stop');
     }
 
     // Сохраняем рисунки через getDrawingsData() (attrs через _getElementAttrs, не outerHTML)
@@ -733,13 +785,13 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePlayerCount();
     }
 
-    function finishPlaybackUI(message = '✅ Воспроизведение завершено') {
+    function finishPlaybackUI(message = 'Воспроизведение завершено') {
         exitPlaybackMode();
         stopPlaybackBtn.style.display = 'none';
         playBtn.style.display = 'flex';
         playbackFill.style.width = '0%';
         recStatus.textContent = '00:00';
-        if (message) showToast(message);
+        if (message) showToast(message, 'play');
     }
 
     playBtn.addEventListener('click', function() {
@@ -762,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function() {
             timelinePlayer.onEnd = () => {
                 timelinePlayer.onProgress = null;
                 timelinePlayer.onEnd = null;
-                finishPlaybackUI('✅ Розыгрыш завершён');
+                finishPlaybackUI('Розыгрыш завершён');
                 updatePlayerCount();
             };
             timelinePlayer.play(1);
@@ -770,7 +822,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Покадровое воспроизведение (запись/старые снапшоты)
-        if (recordedSnapshots.length < 2) { showToast('Нет данных для воспроизведения'); return; }
+        if (recordedSnapshots.length < 2) { showToast('Нет данных для воспроизведения', 'warning'); return; }
 
         enterPlaybackMode();
         stopPlaybackBtn.style.display = 'flex';
@@ -794,7 +846,7 @@ document.addEventListener('DOMContentLoaded', function() {
             playbackFill.style.width = '0%';
             recorderManager.onFrame = null;
             recorderManager.onPlaybackEnd = null;
-            showToast('✅ Воспроизведение завершено');
+            showToast('Воспроизведение завершено', 'play');
         };
 
         recorderManager.startPlayback(recordedSnapshots, null, 1);
@@ -816,7 +868,7 @@ document.addEventListener('DOMContentLoaded', function() {
         recorderManager.onPlaybackEnd = null;
         clearCourtLayers();
         updatePlayerCount();
-        showToast('⏹ Стоп');
+        showToast('Стоп', 'stop');
     });
 
     function clearCourtLayers() {
@@ -842,7 +894,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function saveCurrentScheme() {
         const name = document.getElementById('scheme-name').value.trim();
-        if (!name) { showToast('Введите название'); return; }
+        if (!name) { showToast('Введите название', 'warning'); return; }
         // Сохраняем через attrs (включая marker для стрелок), с обратной совместимостью при загрузке
         const drawingsData = drawingManager.getDrawings().map(d => ({
             type: d.type,
@@ -853,7 +905,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (res) {
             document.getElementById('scheme-name').value = '';
             renderSchemesList();
-            showToast('✅ Схема сохранена');
+            showToast('Схема сохранена', 'save');
         }
     }
 
@@ -861,7 +913,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const list = document.getElementById('schemes-list');
         const schemes = storageManager.getAll();
         list.innerHTML = '';
-        if (!schemes.length) { list.innerHTML = '<div class="empty-state"><span class="empty-icon">📂</span>Нет схем</div>'; return; }
+        if (!schemes.length) { list.innerHTML = `<div class="empty-state"><span class="empty-icon">${iconMarkup('folder')}</span>Нет схем</div>`; return; }
         schemes.forEach(s => {
             const item = document.createElement('div');
             item.className = 'scheme-item';
@@ -875,18 +927,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         list.querySelectorAll('.load-btn').forEach(b => b.addEventListener('click', function() { loadScheme(this.dataset.id); }));
         list.querySelectorAll('.delete-btn').forEach(b => b.addEventListener('click', async function() {
-            const confirmed = await showConfirm('Удалить схему?', '🗑️', false);
+            const confirmed = await showConfirm('Удалить схему?', 'trash', false);
             if (!confirmed) return;
             storageManager.delete(this.dataset.id);
             renderSchemesList();
-            showToast('Схема удалена');
+            showToast('Схема удалена', 'trash');
         }));
     }
 
     async function loadScheme(id) {
         const s = storageManager.load(id);
         if (!s) return;
-        const confirmed = await showConfirm('Загрузить "' + s.name + '"?', '📥', true);
+        const confirmed = await showConfirm('Загрузить "' + s.name + '"?', 'download', true);
         if (!confirmed) return;
         timelinePlayer.stop();
         activeTimeline = null;
@@ -921,7 +973,7 @@ document.addEventListener('DOMContentLoaded', function() {
         playBtn.classList.add('disabled');
         recStatus.textContent = '00:00';
         updatePlayerCount();
-        showToast('✅ "' + s.name + '" загружена');
+        showToast('"' + s.name + '" загружена', 'folder');
     }
 
     // ============================================
@@ -932,7 +984,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const grid = document.getElementById('playbook-grid');
 
         playbookManager.onLoadCombo = async (combo) => {
-            const confirmed = await showConfirm('Загрузить комбинацию "' + combo.name + '"?', '📋', true);
+            const confirmed = await showConfirm('Загрузить комбинацию "' + combo.name + '"?', 'clipboard', true);
             if (!confirmed) return;
             timelinePlayer.stop();
             timelinePlayer.onProgress = null;
@@ -955,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 recStatus.textContent = '00:00';
                 // Кнопка Play живёт во вкладке Tools — показываем её сразу после загрузки.
                 document.querySelector('.panel-tab[data-section="tools"]').click();
-                showToast('✅ "' + combo.name + '" — нажмите ▶️ для розыгрыша');
+                showToast('"' + combo.name + '" — нажмите Play для розыгрыша', 'play');
                 return;
             }
 
@@ -1098,7 +1150,7 @@ document.addEventListener('DOMContentLoaded', function() {
             recordedSnapshots = comboSnapshots;
             playBtn.classList.remove('disabled');
             updatePlayerCount();
-            showToast('✅ "' + combo.name + '" — нажмите ▶️');
+            showToast('"' + combo.name + '" — нажмите Play', 'play');
         };
 
         catBtns.forEach(b => {
@@ -1114,10 +1166,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // TOAST
     // ============================================
-    function showToast(msg) {
+    function showToast(msg, iconName) {
         let toast = document.getElementById('toast');
         if (!toast) { toast = document.createElement('div'); toast.id = 'toast'; toast.className = 'toast'; document.body.appendChild(toast); }
-        toast.textContent = msg;
+        toast.innerHTML = '';
+        if (iconName) {
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'toast-icon';
+            iconWrap.innerHTML = iconMarkup(iconName);
+            toast.appendChild(iconWrap);
+        }
+        const text = document.createElement('span');
+        text.textContent = msg;
+        toast.appendChild(text);
         // Тост и подсказка живут в одном месте — на время тоста прячем подсказку
         toastActive = true;
         clearTimeout(hintTimer);
@@ -1132,39 +1193,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
-    // ICON INIT — заменяем emoji на SVG из icons.js
+    // ICON INIT — все [data-icon] заменяются на SVG из icons.js
     // ============================================
     function initIcons() {
         document.querySelectorAll('[data-icon]').forEach(el => {
-            const name = el.dataset.icon;
-            const svg = ICONS[name];
-            if (svg) {
-                const wrapper = document.createElement('span');
-                wrapper.className = 'svg-icon svg-icon-' + name;
-                wrapper.innerHTML = svg;
-                el.textContent = '';
-                el.appendChild(wrapper);
-            }
-        });
-        // Табы тоже заменяем
-        document.querySelectorAll('.tab-icon').forEach(el => {
-            const text = el.textContent.trim();
-            const map = { '🛠': 'tools', '📋': 'playbook', '💾': 'save' };
-            const name = map[text];
-            if (name && ICONS[name]) {
-                const wrapper = document.createElement('span');
-                wrapper.className = 'svg-icon svg-icon-' + name;
-                wrapper.innerHTML = ICONS[name];
-                el.textContent = '';
-                el.appendChild(wrapper);
-            }
+            setIcon(el, el.dataset.icon);
         });
     }
 
     // ============================================
     // INIT
     // ============================================
-    initIcons();
     initSaveSystem();
     initPlaybookLibrary();
     updatePlayerCount();

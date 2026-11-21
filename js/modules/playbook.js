@@ -3,6 +3,7 @@
  * Модуль библиотеки комбинаций (Playbook)
  */
 import { PLAYBOOK_TIMELINES } from './playbookTimelines.js';
+import { iconMarkup } from './icons.js';
 
 export class PlaybookManager {
     constructor() {
@@ -463,11 +464,11 @@ export class PlaybookManager {
      */
     getTypeIcon(type) {
         const icons = {
-            'offense': '⚡',
-            'defense': '🛡️',
-            'special': '🎯'
+            'offense': 'cut',
+            'defense': 'shield',
+            'special': 'star'
         };
-        return icons[type] || '🏀';
+        return iconMarkup(icons[type] || 'ball');
     }
 
     /**
@@ -490,7 +491,7 @@ export class PlaybookManager {
             item.setAttribute('data-id', combo.id);
 
             item.innerHTML = `
-                <div class="playbook-preview">${this.getTypeIcon(combo.type)}</div>
+                <div class="playbook-preview" data-type="${combo.type}">${this.getTypeIcon(combo.type)}</div>
                 <div class="playbook-name">${combo.name}</div>
                 <div class="playbook-desc">${combo.description}</div>
             `;

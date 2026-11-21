@@ -30,7 +30,7 @@
     <div class="app">
         <header class="header">
             <div class="header-left">
-                <div class="header-logo">🏀</div>
+                <div class="header-logo" data-icon="ball">🏀</div>
                 <div class="header-title">Playbook <span>Pro</span></div>
             </div>
             <div class="header-center">
@@ -41,7 +41,7 @@
                 </div>
             </div>
             <div class="header-right">
-                <span class="player-badge" id="player-count"><span class="badge-icon">👤</span><span class="badge-count">0</span></span>
+                <span class="player-badge" id="player-count"><span class="badge-icon" data-icon="playerCount">👤</span><span class="badge-count">0</span></span>
                 <div class="record-indicator" id="record-indicator" style="display:none"><span class="record-dot"></span><span class="record-label">REC</span></div>
             </div>
         </header>
@@ -86,30 +86,30 @@
                 <div class="handle-arrow" id="handle-arrow">▾</div>
             </div>
             <div class="panel-tabs">
-                <button class="panel-tab active" data-section="tools"><span class="tab-icon">🛠</span><span class="tab-label">Tools</span></button>
-                <button class="panel-tab" data-section="playbook"><span class="tab-icon">📋</span><span class="tab-label">Playbook</span></button>
-                <button class="panel-tab" data-section="save"><span class="tab-icon">💾</span><span class="tab-label">Save</span></button>
+                <button class="panel-tab active" data-section="tools"><span class="tab-icon" data-icon="tools">🛠</span><span class="tab-label">Tools</span></button>
+                <button class="panel-tab" data-section="playbook"><span class="tab-icon" data-icon="playbook">📋</span><span class="tab-label">Playbook</span></button>
+                <button class="panel-tab" data-section="save"><span class="tab-icon" data-icon="save">💾</span><span class="tab-label">Save</span></button>
             </div>
             <div class="panel-content">
                 <div class="panel-section active" id="tools-section">
                     <div class="record-bar">
-                        <button class="rec-btn record-start" id="record-start"><span class="rec-icon">⏺</span><span class="rec-label">Запись</span></button>
-                        <button class="rec-btn play-btn disabled" id="play-btn"><span class="rec-icon">▶️</span><span class="rec-label">Play</span></button>
+                        <button class="rec-btn record-start" id="record-start"><span class="rec-icon" data-icon="record">⏺</span><span class="rec-label">Запись</span></button>
+                        <button class="rec-btn play-btn disabled" id="play-btn"><span class="rec-icon" data-icon="play">▶️</span><span class="rec-label">Play</span></button>
                     </div>
                     <div class="tool-group players-group">
-                        <div class="tool-group-title"><span class="group-icon">👥</span>Players</div>
+                        <div class="tool-group-title"><span class="group-icon" data-icon="players">👥</span>Players</div>
                         <div class="tool-group-buttons">
-                            <button class="tool-btn pg" data-tool="player" data-type="PG"><div class="tool-icon">PG</div><div class="tool-label">PG</div></button>
-                            <button class="tool-btn sg" data-tool="player" data-type="SG"><div class="tool-icon">SG</div><div class="tool-label">SG</div></button>
-                            <button class="tool-btn sf" data-tool="player" data-type="SF"><div class="tool-icon">SF</div><div class="tool-label">SF</div></button>
-                            <button class="tool-btn pf" data-tool="player" data-type="PF"><div class="tool-icon">PF</div><div class="tool-label">PF</div></button>
-                            <button class="tool-btn c" data-tool="player" data-type="C"><div class="tool-icon">C</div><div class="tool-label">C</div></button>
-                            <button class="tool-btn defense" data-tool="player" data-type="defense"><div class="tool-icon">⚪</div><div class="tool-label">DEF</div></button>
+                            <button class="tool-btn pg" data-tool="player" data-type="PG"><div class="tool-icon" data-icon="PG">PG</div><div class="tool-label">PG</div></button>
+                            <button class="tool-btn sg" data-tool="player" data-type="SG"><div class="tool-icon" data-icon="SG">SG</div><div class="tool-label">SG</div></button>
+                            <button class="tool-btn sf" data-tool="player" data-type="SF"><div class="tool-icon" data-icon="SF">SF</div><div class="tool-label">SF</div></button>
+                            <button class="tool-btn pf" data-tool="player" data-type="PF"><div class="tool-icon" data-icon="PF">PF</div><div class="tool-label">PF</div></button>
+                            <button class="tool-btn c" data-tool="player" data-type="C"><div class="tool-icon" data-icon="C">C</div><div class="tool-label">C</div></button>
+                            <button class="tool-btn defense" data-tool="player" data-type="defense"><div class="tool-icon" data-icon="DEF">⚪</div><div class="tool-label">DEF</div></button>
                             <button class="tool-btn ball" data-tool="ball" data-type="ball"><div class="tool-icon" data-icon="ball">🏀</div><div class="tool-label">Ball</div></button>
                         </div>
                     </div>
                     <div class="tool-group drawing-group">
-                        <div class="tool-group-title"><span class="group-icon">✏️</span>Drawing</div>
+                        <div class="tool-group-title"><span class="group-icon" data-icon="pencil">✏️</span>Drawing</div>
                         <div class="tool-group-buttons">
                             <button class="tool-btn arrow" data-tool="drawing" data-type="arrow"><div class="tool-icon" data-icon="arrow">➡️</div><div class="tool-label">Движение</div></button>
                             <button class="tool-btn line" data-tool="drawing" data-type="line"><div class="tool-icon" data-icon="line">📏</div><div class="tool-label">Линия</div></button>
@@ -122,17 +122,17 @@
                         </div>
                     </div>
                     <div class="tool-group history-group">
-                        <div class="tool-group-title"><span class="group-icon">↩️</span>History</div>
+                        <div class="tool-group-title"><span class="group-icon" data-icon="undo">↩️</span>History</div>
                         <div class="tool-group-buttons history-grid">
-                            <button class="tool-btn undo" id="undo-btn" data-tool="undo"><div class="tool-icon">↩</div><div class="tool-label">Undo</div></button>
-                            <button class="tool-btn redo" id="redo-btn" data-tool="redo"><div class="tool-icon">↪</div><div class="tool-label">Redo</div></button>
-                            <button class="tool-btn clear-all" id="clear-all-btn" data-tool="clear"><div class="tool-icon">🗑</div><div class="tool-label">Clear</div></button>
+                            <button class="tool-btn undo" id="undo-btn" data-tool="undo"><div class="tool-icon" data-icon="undo">↩</div><div class="tool-label">Undo</div></button>
+                            <button class="tool-btn redo" id="redo-btn" data-tool="redo"><div class="tool-icon" data-icon="redo">↪</div><div class="tool-label">Redo</div></button>
+                            <button class="tool-btn clear-all" id="clear-all-btn" data-tool="clear"><div class="tool-icon" data-icon="trash">🗑</div><div class="tool-label">Clear</div></button>
                         </div>
                     </div>
                     <div class="tool-hint"><span class="hint-dot"></span><span id="hint-text">PG — Нажмите на площадку</span></div>
                 </div>
                 <div class="panel-section" id="playbook-section">
-                    <div class="section-header"><span class="section-icon">📋</span><span class="section-title">Playbook Library</span></div>
+                    <div class="section-header"><span class="section-icon" data-icon="playbook">📋</span><span class="section-title">Playbook Library</span></div>
                     <div class="playbook-categories" id="playbook-categories">
                         <button class="category-btn active" data-category="basic">Basic</button>
                         <button class="category-btn" data-category="offense">Offense</button>
@@ -142,10 +142,10 @@
                     <div class="playbook-grid" id="playbook-grid"></div>
                 </div>
                 <div class="panel-section" id="save-section">
-                    <div class="section-header"><span class="section-icon">💾</span><span class="section-title">Save / Load</span></div>
+                    <div class="section-header"><span class="section-icon" data-icon="save">💾</span><span class="section-title">Save / Load</span></div>
                     <div class="save-controls">
                         <input type="text" id="scheme-name" placeholder="Название схемы..." />
-                        <button class="action-btn" id="save-scheme">💾</button>
+                        <button class="action-btn" id="save-scheme" data-icon="save">💾</button>
                     </div>
                     <div class="schemes-list" id="schemes-list"><div class="empty-state"><span class="empty-icon">📂</span>Нет схем</div></div>
                 </div>
@@ -157,13 +157,13 @@
     <div class="playback-hud" id="playback-hud" style="display:none">
         <div class="playback-progress"><div class="playback-fill" id="playback-fill"></div></div>
         <span class="rec-status" id="rec-status">00:00</span>
-        <button class="rec-btn stop-playback" id="stop-playback" title="Остановить"><span class="rec-icon">⏹</span></button>
+        <button class="rec-btn stop-playback" id="stop-playback" title="Остановить"><span class="rec-icon" data-icon="stop">⏹</span></button>
     </div>
 
     <!-- Кастомный confirm диалог -->
     <div class="confirm-overlay" id="confirm-overlay" style="display:none">
         <div class="confirm-dialog">
-            <div class="confirm-icon" id="confirm-icon">⚠️</div>
+            <div class="confirm-icon" id="confirm-icon" data-icon="warning">⚠️</div>
             <div class="confirm-msg" id="confirm-msg">Вы уверены?</div>
             <div class="confirm-actions">
                 <button class="confirm-btn confirm-cancel" id="confirm-cancel">Отмена</button>
