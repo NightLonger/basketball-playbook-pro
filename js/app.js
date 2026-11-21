@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ВАЖНО: captureSnapshot вызываем ТОЛЬКО если идёт запись, чтобы не испортить playback
     playerManager.onHistoryChange = (action) => {
         historyManager.push(action);
+        syncHistoryButtons();
         if (recorderManager.isRecording) {
             recorderManager.captureFrame();
             captureSnapshot();
@@ -105,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     drawingManager.onHistoryChange = (action) => {
         historyManager.push(action);
+        syncHistoryButtons();
         if (recorderManager.isRecording) {
             recorderManager.captureFrame();
             captureSnapshot();
@@ -136,6 +138,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const HANDLE_HEIGHT = 44;
     let autoCollapseTimer = null;
 
+    // Компактный режим: Drawing виден по умолчанию, Players/History живут в выносных лотках.
+    let compactView = 'drawing';
+    const compactTrays = {
+        players: document.getElementById('players-tray'),
+        history: document.getElementById('history-tray')
+    };
+
+    function setCompactView(view) {
+        compactView = view;
+        Object.entries(compactTrays).forEach(([name, tray]) => {
+            const open = view === name;
+            bottomPanel.classList.toggle(name + '-open', open);
+            if (tray) tray.setAttribute('aria-hidden', open ? 'false' : 'true');
+        });
+    }
+
     function updateSheet(state, instant = false) {
         sheetState = state;
 
@@ -156,6 +174,8 @@ document.addEventListener('DOMContentLoaded', function() {
             bottomPanel.style.transform = 'translateY(0)';
             bottomPanel.style.maxHeight = '';
             handleArrow.classList.remove('rotated');
+            // В раскрытом меню обе группы видны — лотки больше не нужны.
+            if (compactView !== 'drawing') setCompactView('drawing');
         }
 
         if (instant) {
@@ -241,6 +261,84 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ============================================
+    // PLAYERS TRAY — выносная группа расстановки
+    // ============================================
+    function countDefenders() {
+        return playerManager.getPlayers().filter(p => p.type === 'defense').length;
+    }
+
+    function updateDefCounter() {
+        const el = document.getElementById('def-counter');
+        if (el) el.textContent = 'DEF ' + countDefenders() + '/5';
+    }
+
+    // Доступность Undo/Redo и счётчик в History-лотке (и в раскрытой панели).
+    function syncHistoryButtons() {
+        const canUndo = historyManager.canUndo();
+        const canRedo = historyManager.canRedo();
+        document.querySelectorAll('.tool-btn[data-action="undo"]').forEach(b => { b.disabled = !canUndo; });
+        document.querySelectorAll('.tool-btn[data-action="redo"]').forEach(b => { b.disabled = !canRedo; });
+        const counter = document.getElementById('history-counter');
+        if (counter) counter.textContent = 'UNDO ' + (historyManager.currentIndex + 1);
+    }
+
+    function openPlayersTray() {
+        deactivateTool();
+        syncPlayerButtons();
+        updateDefCounter();
+        updateSheet('half');
+        setCompactView('players');
+    }
+
+    function openHistoryTray() {
+        deactivateTool();
+        syncHistoryButtons();
+        updateSheet('half');
+        setCompactView('history');
+    }
+
+    function closeCompactTray() {
+        setCompactView('drawing');
+        deactivateTool();
+    }
+
+    const trayToggles = [
+        { el: document.getElementById('players-tray-toggle'), view: 'players' },
+        { el: document.getElementById('history-tray-toggle'), view: 'history' }
+    ];
+    // Лотки и кнопки лежат внутри панели — не даём их касаниям запускать drag-жест.
+    ['touchstart', 'touchend', 'mousedown'].forEach(evt => {
+        trayToggles.forEach(({ el }) => el?.addEventListener(evt, e => e.stopPropagation(), { passive: true }));
+        Object.values(compactTrays).forEach(tray => tray?.addEventListener(evt, e => e.stopPropagation(), { passive: true }));
+    });
+    trayToggles.forEach(({ el, view }) => {
+        el?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (compactView === view) closeCompactTray();
+            else if (view === 'players') openPlayersTray();
+            else openHistoryTray();
+            haptic();
+        });
+    });
+
+    document.querySelectorAll('[data-tray-done]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            closeCompactTray();
+            haptic();
+        });
+    });
+
+    document.getElementById('clear-players-btn')?.addEventListener('click', async () => {
+        const confirmed = await showConfirm('Очистить игроков?', 'trash', false);
+        if (!confirmed) return;
+        playerManager.clearAll();
+        updatePlayerCount();
+        showToast('Игроки очищены', 'trash');
+        openPlayersTray();
+        haptic();
+    });
+
+    // ============================================
     // PANEL TABS
     // ============================================
     document.querySelectorAll('.panel-tab').forEach(tab => {
@@ -288,7 +386,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'eraser': { label: 'Ластик', icon: 'eraser' }
     };
 
-    const toolButtons = document.querySelectorAll('#tools-section .tool-btn');
+    // Один набор кнопок на две локации: постоянная группа в expanded и выносной лоток.
+    const toolButtons = document.querySelectorAll('#tools-section .tool-btn, #players-tray .tool-btn, #history-tray .tool-btn');
     const hintText = document.getElementById('hint-text');
 
     // Плавающая подсказка под шапкой (не перекрывается нижней панелью)
@@ -383,16 +482,19 @@ document.addEventListener('DOMContentLoaded', function() {
         return playerManager.getPlayers().some(p => p.type === type);
     }
 
-    // Блокируем кнопки позиций, которые уже есть на площадке.
+    // Блокируем уникальные позиции, уже занятые на площадке, и DEF после лимита в 5.
     function syncPlayerButtons() {
+        const defCount = countDefenders();
         toolButtons.forEach(btn => {
             const tool = btn.dataset.tool;
             if (tool !== 'player' && tool !== 'ball') return;
             const type = btn.dataset.type;
             const used = UNIQUE_PLAYER_TYPES.has(type) && playerTypeExists(type);
-            btn.classList.toggle('used', used);
-            btn.disabled = used;
-            if (used) btn.classList.remove('active');
+            const defFull = type === 'defense' && defCount >= 5;
+            const blocked = used || defFull;
+            btn.classList.toggle('used', blocked);
+            btn.disabled = blocked;
+            if (blocked) btn.classList.remove('active');
         });
     }
 
@@ -409,12 +511,13 @@ document.addEventListener('DOMContentLoaded', function() {
         setHint('', 'Выберите позицию или инструмент');
     }
 
-    // Заменяем эмодзи на SVG до выбора инструмента по умолчанию,
-    // иначе чип в шапке скопирует текстовую подпись вместо иконки.
+    // Иконки готовим до первой подсказки и чипа в шапке.
     initIcons();
 
-    const defaultTool = document.querySelector('#tools-section .tool-btn.pg');
-    if (defaultTool) { defaultTool.classList.add('active'); setToolFromButton(defaultTool); }
+    // Старт: сразу открываем Players — расстановка игроков — первое действие.
+    // «Готово» убирает лоток и оставляет Drawing в компактном режиме.
+    openPlayersTray();
+    syncHistoryButtons();
 
     // Тактильный отклик (вибрация на мобильных)
     function haptic() {
@@ -423,9 +526,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     toolButtons.forEach(btn => {
         btn.addEventListener('click', function() {
-            if (this.id === 'undo-btn') { undoLastAction(); return; }
-            if (this.id === 'redo-btn') { redoLastAction(); return; }
-            if (this.id === 'clear-all-btn') { clearAllAction(); return; }
+            const action = this.dataset.action;
+            if (action === 'undo') { undoLastAction(); return; }
+            if (action === 'redo') { redoLastAction(); return; }
+            if (action === 'clear') { clearAllAction(); return; }
             toolButtons.forEach(t => t.classList.remove('active'));
             this.classList.add('active');
             setToolFromButton(this);
@@ -449,15 +553,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 showToast(meta.label + ' уже на площадке', meta.icon);
                 deactivateTool();
                 syncPlayerButtons();
-                updateSheet('half');
                 return;
             }
+            if (type === 'defense' && countDefenders() >= 5) {
+                showToast('DEF 5/5 — максимум защитников', 'DEF');
+                deactivateTool();
+                syncPlayerButtons();
+                return;
+            }
+            // В компактном режиме выбор позиции открывает лоток; в expanded просто вооружаем инструмент.
+            if (sheetState !== 'expanded') setCompactView('players');
             currentTool = tool; currentToolType = type;
             playerManager.setTool(tool, type);
             const posDesc = POSITION_HINTS[type] || 'Нажмите на площадку';
             setHint(meta.label, posDesc, meta.icon);
             showActiveToolChip(btn);
-            updateSheet('half');
+            if (sheetState !== 'expanded') updateSheet('half');
         } else if (tool === 'drawing') {
             currentTool = 'drawing'; currentToolType = type;
             if (type === 'eraser') {
@@ -468,14 +579,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 drawingManager.setTool('drawing', type);
                 setHint(meta.label, 'Проведите по площадке', meta.icon);
             }
-            // Не сворачиваем панель в half: там кнопки Drawing и подсказка скрыты,
-            // и пользователь не видит, какой инструмент выбран. Панель свернётся
-            // автоматически при начале рисования (autoCollapsePanel).
+            // Drawing — компактный вид по умолчанию: площадка остаётся открытой.
+            setCompactView('drawing');
             showActiveToolChip(btn);
-            updateSheet('expanded');
+            updateSheet('half');
         } else {
             currentTool = null;
             currentToolType = null;
+            setCompactView('drawing');
             hideActiveToolChip();
             setHint('', 'Выберите инструмент');
             updateSheet('half');
@@ -504,20 +615,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 const busyMeta = HINT_META[currentToolType] || { label: currentToolType, icon: currentToolType };
                 showToast(busyMeta.label + ' уже на площадке', busyMeta.icon);
                 deactivateTool();
-                updateSheet('half');
+                return;
+            }
+            if (currentToolType === 'defense' && countDefenders() >= 5) {
+                showToast('DEF 5/5 — максимум защитников', 'DEF');
+                deactivateTool();
                 return;
             }
 
             const placedType = currentToolType;
-            playerManager.addPlayer(point.x, point.y);
+            const placed = playerManager.addPlayer(point.x, point.y);
             updatePlayerCount();
 
-            // Одна позиция — одно размещение: инструмент сразу выключается,
-            // а компактная панель показывает все позиции игроков.
-            deactivateTool();
-            updateSheet('half');
+            // Фишка коротко «вылетает» из лотка на площадку.
+            if (placed && placed.element) {
+                placed.element.classList.add('pop-in');
+                placed.element.addEventListener('animationend', () => placed.element.classList.remove('pop-in'), { once: true });
+            }
+
             const placedMeta = HINT_META[placedType] || { label: placedType, icon: placedType };
-            showToast(placedMeta.label + ' добавлен — выберите следующую позицию', placedMeta.icon);
+            if (placedType === 'defense') {
+                // Защитников можно ставить несколько подряд — лоток остаётся открытым.
+                showToast('Защитник добавлен — DEF ' + countDefenders() + '/5', 'DEF');
+            } else {
+                // Уникальные позиции — одно размещение, но лоток остаётся открытым
+                // до явного «Готово», чтобы можно было поставить следующую позицию.
+                deactivateTool();
+                showToast(placedMeta.label + ' добавлен', placedMeta.icon);
+            }
             return;
         }
         // Авто-сворачивание при начале рисования
@@ -553,6 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const el = document.querySelector('#player-count .badge-count');
         if (el) el.textContent = playerManager.getPlayers().length;
         syncPlayerButtons();
+        updateDefCounter();
     }
 
     function syncCourtToggle() {
@@ -576,10 +702,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function undoLastAction() {
         const action = historyManager.undo();
         if (action) { undoAction(action); showToast('Отмена', 'undo'); } else showToast('Нет действий', 'warning');
+        syncHistoryButtons();
     }
     function redoLastAction() {
         const action = historyManager.redo();
         if (action) { redoAction(action); showToast('Повтор', 'redo'); } else showToast('Нет действий', 'warning');
+        syncHistoryButtons();
     }
     async function clearAllAction() {
         const confirmed = await showConfirm('Очистить всё?', 'trash', false);
@@ -592,9 +720,12 @@ document.addEventListener('DOMContentLoaded', function() {
         playerManager.clearAll();
         historyManager.clear();
         updatePlayerCount();
+        syncHistoryButtons();
         recorderManager.captureFrame();
         captureSnapshot();
         showToast('Всё очищено', 'trash');
+        // После очистки снова предлагаем расстановку игроков.
+        openPlayersTray();
     }
 
     function undoAction(action) {
@@ -701,6 +832,7 @@ document.addEventListener('DOMContentLoaded', function() {
         drawingManager.clearAll();
         historyManager.clear();
         updatePlayerCount();
+        syncHistoryButtons();
         recorderManager.clearRecording();
         recordedSnapshots = [];
         const ok = recorderManager.startRecording();
@@ -991,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', function() {
             timelinePlayer.onEnd = null;
             recorderManager.stopPlayback();
             exitPlaybackMode();
+            setCompactView('drawing');
             activeTimeline = null;
             recordedSnapshots = [];
             clearCourtLayers();

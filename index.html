@@ -81,7 +81,46 @@
         </div>
 
         <div class="bottom-panel" id="bottom-panel">
+            <!-- Выносная группа расстановки: открывается вручную, уезжает обратно после выбора позиции -->
+            <div class="compact-tray players-tray" id="players-tray" aria-hidden="true">
+                <div class="tray-header">
+                    <div class="tray-title"><span class="group-icon" data-icon="players"></span>Players</div>
+                    <div class="def-counter" id="def-counter">DEF 0/5</div>
+                    <div class="tray-actions">
+                        <button class="tray-icon-btn" id="clear-players-btn" type="button" title="Очистить игроков" aria-label="Очистить игроков"><span class="clear-icon" data-icon="trash"></span></button>
+                        <button class="tray-done-btn" id="players-done-btn" data-tray-done type="button"><span class="done-icon" data-icon="check"></span><span>Готово</span></button>
+                    </div>
+                </div>
+                <div class="tool-group-buttons tray-buttons">
+                    <button class="tool-btn pg" data-tool="player" data-type="PG"><div class="tool-icon" data-icon="PG"></div><div class="tool-label">PG</div></button>
+                    <button class="tool-btn sg" data-tool="player" data-type="SG"><div class="tool-icon" data-icon="SG"></div><div class="tool-label">SG</div></button>
+                    <button class="tool-btn sf" data-tool="player" data-type="SF"><div class="tool-icon" data-icon="SF"></div><div class="tool-label">SF</div></button>
+                    <button class="tool-btn pf" data-tool="player" data-type="PF"><div class="tool-icon" data-icon="PF"></div><div class="tool-label">PF</div></button>
+                    <button class="tool-btn c" data-tool="player" data-type="C"><div class="tool-icon" data-icon="C"></div><div class="tool-label">C</div></button>
+                    <button class="tool-btn defense" data-tool="player" data-type="defense"><div class="tool-icon" data-icon="DEF"></div><div class="tool-label">DEF</div></button>
+                    <button class="tool-btn ball" data-tool="ball" data-type="ball"><div class="tool-icon" data-icon="ball"></div><div class="tool-label">Ball</div></button>
+                </div>
+            </div>
+            <!-- История в том же формате: быстрое Undo/Redo/Clear без раскрытия панели -->
+            <div class="compact-tray history-tray" id="history-tray" aria-hidden="true">
+                <div class="tray-header">
+                    <div class="tray-title"><span class="group-icon" data-icon="history"></span>History</div>
+                    <div class="history-counter" id="history-counter">UNDO 0</div>
+                    <div class="tray-actions">
+                        <button class="tray-done-btn" data-tray-done type="button"><span class="done-icon" data-icon="check"></span><span>Готово</span></button>
+                    </div>
+                </div>
+                <div class="tool-group-buttons history-grid">
+                    <button class="tool-btn undo" id="tray-undo-btn" data-tool="undo" data-action="undo"><div class="tool-icon" data-icon="undo"></div><div class="tool-label">Undo</div></button>
+                    <button class="tool-btn redo" id="tray-redo-btn" data-tool="redo" data-action="redo"><div class="tool-icon" data-icon="redo"></div><div class="tool-label">Redo</div></button>
+                    <button class="tool-btn clear-all" id="tray-clear-btn" data-tool="clear" data-action="clear"><div class="tool-icon" data-icon="trash"></div><div class="tool-label">Clear</div></button>
+                </div>
+            </div>
             <div class="panel-handle" id="panel-handle">
+                <div class="handle-actions">
+                    <button class="tray-toggle" id="players-tray-toggle" type="button" title="Разместить игроков" aria-label="Разместить игроков"><span class="toggle-icon" data-icon="jersey"></span><span class="tray-toggle-label">Players</span></button>
+                    <button class="tray-toggle" id="history-tray-toggle" type="button" title="История действий" aria-label="История действий"><span class="toggle-icon" data-icon="history"></span><span class="tray-toggle-label">History</span></button>
+                </div>
                 <div class="handle-bar"></div>
                 <div class="handle-arrow" id="handle-arrow">▾</div>
             </div>
@@ -124,9 +163,9 @@
                     <div class="tool-group history-group">
                         <div class="tool-group-title"><span class="group-icon" data-icon="undo">↩️</span>History</div>
                         <div class="tool-group-buttons history-grid">
-                            <button class="tool-btn undo" id="undo-btn" data-tool="undo"><div class="tool-icon" data-icon="undo">↩</div><div class="tool-label">Undo</div></button>
-                            <button class="tool-btn redo" id="redo-btn" data-tool="redo"><div class="tool-icon" data-icon="redo">↪</div><div class="tool-label">Redo</div></button>
-                            <button class="tool-btn clear-all" id="clear-all-btn" data-tool="clear"><div class="tool-icon" data-icon="trash">🗑</div><div class="tool-label">Clear</div></button>
+                            <button class="tool-btn undo" id="undo-btn" data-tool="undo" data-action="undo"><div class="tool-icon" data-icon="undo">↩</div><div class="tool-label">Undo</div></button>
+                            <button class="tool-btn redo" id="redo-btn" data-tool="redo" data-action="redo"><div class="tool-icon" data-icon="redo">↪</div><div class="tool-label">Redo</div></button>
+                            <button class="tool-btn clear-all" id="clear-all-btn" data-tool="clear" data-action="clear"><div class="tool-icon" data-icon="trash">🗑</div><div class="tool-label">Clear</div></button>
                         </div>
                     </div>
                     <div class="tool-hint"><span class="hint-dot"></span><span id="hint-text">PG — Нажмите на площадку</span></div>

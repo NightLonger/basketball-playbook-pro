@@ -170,7 +170,7 @@ html, body {
     transform: translateY(0);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
-/* Половина — показываем handle, табы и только секцию Players */
+/* Половина —Drawing по умолчанию; Players уехал в выносной лоток */
 .bottom-panel.half {
     box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
 }
@@ -180,14 +180,15 @@ html, body {
 }
 .bottom-panel.half #tools-section .record-bar,
 .bottom-panel.half #tools-section .history-group,
-.bottom-panel.half #tools-section .tool-hint {
+.bottom-panel.half #tools-section .tool-hint,
+.bottom-panel.half #tools-section .players-group {
     display: none !important;
 }
-/* В компактном режиме показываем все позиции игроков и заголовок Drawing,
-   но сами инструменты рисования скрываем до раскрытия панели. */
-.bottom-panel.half #tools-section .drawing-group .tool-group-buttons {
-    display: none !important;
-}
+/* drawing-group — единственная видимая группа в компактном режиме */
+.bottom-panel.half #tools-section .drawing-group::before { display: none; }
+/* Пока открыт лоток, Drawing уступает ему место: панель ниже, площадки больше. */
+.bottom-panel.half.players-open #tools-section .drawing-group,
+.bottom-panel.half.history-open #tools-section .drawing-group { display: none !important; }
 
 /* Подсказка: панель можно раскрыть/свернуть */
 @keyframes sheet-bob {
@@ -196,6 +197,11 @@ html, body {
 }
 .bottom-panel.half.hint-bob {
     animation: sheet-bob 1.6s ease-in-out infinite;
+}
+/* Пока лоток открыт, панель не «дышит» — это мешает расстановке. */
+.bottom-panel.half.players-open.hint-bob,
+.bottom-panel.half.history-open.hint-bob {
+    animation: none;
 }
 
 /* Скрытая (свернутая) тень становится легче */
@@ -241,6 +247,82 @@ html, body {
 .bottom-panel.collapsed .handle-bar {
     animation: handle-pulse 2.5s ease-in-out infinite;
     background: var(--primary-light);
+}
+
+/* ============================================
+   COMPACT TRAYS — выносные группы Players / History
+   ============================================ */
+/* Две кнопки в ручке панели: открывают лотки вручную. */
+.handle-actions {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    display: none; align-items: center; gap: 6px; z-index: 1;
+}
+.bottom-panel.half .handle-actions { display: flex; }
+.tray-toggle {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: var(--radius-full);
+    border: 1px solid var(--border-primary); background: rgba(255,255,255,0.04);
+    color: var(--text-secondary); font-family: inherit;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+    cursor: pointer; transition: var(--transition-fast);
+}
+.toggle-icon, .clear-icon, .done-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.toggle-icon { width: 13px; height: 13px; }
+.clear-icon { width: 14px; height: 14px; }
+.done-icon { width: 12px; height: 12px; }
+.toggle-icon svg, .clear-icon svg, .done-icon svg { width: 100%; height: 100%; display: block; }
+.tray-toggle:active { transform: scale(0.94); }
+.bottom-panel.half.players-open #players-tray-toggle,
+.bottom-panel.half.history-open #history-tray-toggle {
+    color: var(--primary); border-color: rgba(255,107,0,0.5); background: rgba(255,107,0,0.12);
+}
+
+/* Лотки висят над панелью и выезжают снизу. */
+.compact-tray {
+    display: none;
+    position: absolute; left: 0; right: 0; bottom: 100%; z-index: 2;
+    padding: 8px 12px 10px;
+    background: linear-gradient(180deg, #232330 0%, var(--bg-panel) 10px);
+    border-top: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.38);
+    opacity: 0; transform: translateY(100%); pointer-events: none;
+    transition: transform var(--transition-slow), opacity var(--transition-normal);
+}
+.bottom-panel.half .compact-tray { display: block; }
+.bottom-panel.half.players-open .players-tray,
+.bottom-panel.half.history-open .history-tray {
+    opacity: 1; transform: translateY(0); pointer-events: auto;
+}
+/* Лоток и панель срастаются в один лист. */
+.bottom-panel.half.players-open,
+.bottom-panel.half.history-open { border-top-left-radius: 0; border-top-right-radius: 0; }
+
+.tray-header { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.tray-title { display: inline-flex; align-items: center; gap: 5px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-secondary); }
+.tray-title .group-icon { display: inline-flex; width: 12px; height: 12px; color: var(--text-tertiary); }
+.tray-title .group-icon .svg-icon, .tray-title .group-icon .svg-icon svg { width: 100%; height: 100%; }
+.def-counter { font-size: 10px; font-weight: 700; color: var(--danger);
+    background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25);
+    padding: 2px 7px; border-radius: var(--radius-full); }
+.history-counter { font-size: 10px; font-weight: 700; color: var(--primary);
+    background: rgba(255,107,0,0.12); border: 1px solid rgba(255,107,0,0.25);
+    padding: 2px 7px; border-radius: var(--radius-full); }
+.tray-actions { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.tray-icon-btn { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-primary); border-radius: var(--radius-sm);
+    background: var(--bg-secondary); color: var(--text-tertiary); cursor: pointer; }
+.tray-icon-btn:active { transform: scale(0.92); color: var(--danger); }
+.tray-done-btn { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px;
+    border: none; border-radius: var(--radius-sm); background: var(--primary); color: #fff;
+    font-family: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.tray-done-btn:active { transform: scale(0.95); }
+
+@media (max-width: 400px) {
+    .tray-toggle-label { display: none; }
+    .tray-toggle { padding: 5px 7px; }
 }
 
 .panel-tabs {
@@ -732,6 +814,17 @@ body.playback-mode .active-tool-chip {
 #drawing-layer .drawing-element:hover { opacity: 0.8; }
 .eraser-cursor { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="%23f59e0b" stroke-width="2"/></svg>') 12 12, auto; }
 
+/* Новая фишка коротко «вылетает» из лотка на площадку */
+@keyframes player-pop-in {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+#players-layer .pop-in {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: player-pop-in 260ms cubic-bezier(0.2, 0.8, 0.3, 1.25);
+}
+
 /* Плавное анимированное появление и перемещение */
 @keyframes fadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
 @keyframes drawLine { from { stroke-dasharray: 1000; stroke-dashoffset: 1000; } to { stroke-dasharray: 1000; stroke-dashoffset: 0; } }
@@ -752,6 +845,7 @@ body.playback-mode .active-tool-chip {
    ============================================ */
 @media (min-width: 768px) {
     .bottom-panel { max-width: 420px; left: auto; right: 12px; bottom: 12px; border-radius: var(--radius-xl); border: 1px solid var(--border-primary); max-height: 70vh; }
+    .compact-tray { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
     .panel-tabs { border-radius: var(--radius-xl) var(--radius-xl) 0 0; background: var(--bg-panel); padding: 4px 12px 0; }
     .playbook-grid { grid-template-columns: repeat(2, 1fr); }
 }

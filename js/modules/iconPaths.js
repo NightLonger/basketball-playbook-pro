@@ -54,4 +54,5 @@ export const ICON_PATHS = {
 // Иконки, которым нужна не одна path (не было в наборе — нарисованы в том же стиле).
 export const ICON_INNER = {
   eraser: `<g transform="translate(60 60) rotate(-45)"><path d="M -38 -22 L 38 -22 Q 50 -22 50 -10 L 50 10 Q 50 22 38 22 L -38 22 Q -50 22 -50 10 L -50 -10 Q -50 -22 -38 -22 Z M 8 -24 L 8 24 L 15 24 L 15 -24 Z"/></g>`,
+  check: `<path d="M 104 24 L 112 32 L 48 100 L 12 64 L 22 54 L 47 79 Z"/>`,
 };

@@ -1,5 +1,5 @@
 // Service Worker для Basketball Playbook v3.0
-const CACHE_NAME = 'basketball-playbook-v12';
+const CACHE_NAME = 'basketball-playbook-v14';
 const ASSETS = [
     './',
     './index.html',
